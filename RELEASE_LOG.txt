@@ -1,3 +1,4 @@
+Version 2.5.6 - Added support for GitHub auto-updater
 Version 2.5.5 - Added support for block-based checkout ( the classic checkout is still recommended )
 Version 2.5.42 - Send to iFrame total_items(only products price) instead of total_price(total cart price with taxes and shipping costs);
 Version 2.5.41 - Fix currency attribute sent to iframe;

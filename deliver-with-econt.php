@@ -12,7 +12,7 @@
  * Plugin Name:       Econt Delivery
  * Plugin URI:        https://econt.com/developers/
  * Description:       Econt Shipping Module
- * Version:           2.5.5
+ * Version:           2.5.6
  * Author:            Econt Express LTD.
  * Author URI:        https://econt.com/developers/
  * License:           GPL-2.0+
@@ -62,7 +62,7 @@ register_activation_hook( __FILE__, 'activate_delivery_with_econt' );
 define( 'ECONT_PLUGIN_FILE', __FILE__ );
 define( 'ECONT_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ECONT_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
-define( 'ECONT_VERSION', '1.0.0' );
+define( 'ECONT_VERSION', '2.5.6' );
 
 function is_using_block_checkout() {
 	// Only try to get the current ID if we're on a page
@@ -104,3 +104,24 @@ if ( ! function_exists( 'econt_init_blocks' ) ) {
 	// Use wp hook instead of plugins_loaded
 	add_action( 'wp', 'econt_init_blocks', 20 );
 }
+
+
+/**
+ * Init the plugin updater library.
+ */
+require 'src/plugin-update-checker/plugin-update-checker.php';
+use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
+
+if ( class_exists( 'PucFactory' ) ) {
+    // The plugin-update-checker library is already loaded.
+    $myUpdateChecker = PucFactory::buildUpdateChecker(
+        'https://github.com/econt/woo-plugin', // Official Econt repository
+        __FILE__,
+        'deliver-with-econt'
+    );
+    
+    // Set the branch that contains the stable release.
+    $myUpdateChecker->setBranch( 'main' );
+} 
+
+
