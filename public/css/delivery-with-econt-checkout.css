@@ -1,0 +1,120 @@
+.d-none {
+  display: none;
+}
+
+#delivery_with_econt_calculate_shipping {
+  display: none;
+  position: absolute;
+  right: 0;  
+}
+
+#delivery_with_econt_iframe {
+  border: none; 
+  width:100%; 
+  height: 100vh;
+  max-height: 650px; 
+  overflow:hidden; 
+}
+
+#delivery_with_econt_calculation_container {
+  width: 100%;
+}
+
+#econt_detailed_shipping {
+  font-size: 10px;
+  font-weight: 100;
+  line-height: 10px;
+  color:#234182;
+  margin-bottom: 5px;
+  display: none;
+}
+
+.econt-loader {
+  background-image: url("/wp-content/plugins/deliver-with-econt-rm/public/images/loader.gif") !important;
+  background-position: center 30% !important;
+  background-repeat: no-repeat !important;
+  background-color: white;
+  min-height: 500px;
+  z-index: 9999;
+}
+
+.econt-button {
+  font-weight: 300;
+  padding: 3px 10px;
+  background-color: #234182;
+  color: white;
+}
+
+.econt-button:hover {
+  background-color: #234182;
+  color: white;
+}
+
+.econt-alert {
+  display: none;
+}
+
+.econt-alert.active {
+  display: block !important;
+}
+
+#place_iframe_here {
+  background: white;
+  padding: 10px;
+  display: none;
+}
+
+.econt-modal {
+  padding: 5px;
+}
+.econt-modal button.close {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+}
+
+/* The Modal (background) */
+.econt-modal {
+  display: none; /* Hidden by default */
+  position: fixed; /* Stay in place */
+  z-index: 999; /* Sit on top */
+  left: 0;
+  top: 0;
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  overflow: auto; /* Enable scroll if needed */
+  background-color: rgb(0,0,0); /* Fallback color */
+  background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+}
+
+/* Modal Content/Box */
+.econt-modal-content {
+  background-color: #fefefe;
+  margin: 5% auto 0 auto; /* 15% from the top and centered */
+  padding: 20px;
+  border: 1px solid #888;
+  width: 80%; /* Could be more or less, depending on screen size */
+  max-width: 800px;
+}
+
+/* The Close Button */
+.close {
+  color: #aaa;
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
+  position: relative;
+  z-index: 2;
+}
+
+.close:hover,
+.close:focus {
+  color: black;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.econt-modal-body {
+  position: initial;
+  padding: 0;
+}

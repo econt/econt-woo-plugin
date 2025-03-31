@@ -1,0 +1,40 @@
+Version 2.5.5 - Added support for block-based checkout ( the classic checkout is still recommended )
+Version 2.5.42 - Send to iFrame total_items(only products price) instead of total_price(total cart price with taxes and shipping costs);
+Version 2.5.41 - Fix currency attribute sent to iframe;
+Version 2.5.4 - Add new Gutenberg react block to use in checkout and work well with block based themes
+Version 2.5.34 - Dynamic frontend javascript version in enqueue; Change closeModal function name;
+Version 2.5.33 - Fixed elements overlapping during checkout on small screens.
+Version 2.5.32 - Fixed the priority for action delivery_with_econt_sync_order. Fixed form submit selector.
+Version 2.5.31 - Bugfixes
+Version 2.5.30 - Language bugfixes
+Version 2.5.29 - Bugfixes
+Version 2.5.28 - Version fix
+Version 2.5.27 - Bugfixes
+Version 2.5.26 - Bugfixes
+Version 2.5.25 - Bugfixes
+Version 2.5.24 - Bugfix for EcontPay
+Version 2.5.23 - Bugfixes
+Version 2.5.22 - Bugfixes
+Version 2.5.21 - Changed GECD text
+Version 2.5.20 - Bugfixes
+Version 2.5.15 - Bugfixes
+Version 2.5.14 - Bugfixes
+Version 2.5.13 - Added confirmation message when generating waybill for orders with status "pending payment" and payment method "econt_payment"
+Version 2.5.12 - Added Payment with Econt
+Version 2.5.11 - Bugfixes
+Version 2.5.10 - Fixed create shipment bug (admin ajax)
+Version 2.5.9 - Fixed the "undefined" problem with client names. Removed word "Описание:" from waybill generation field
+Version 2.4.9 - Added check for econt response before order process. Fixed admin side modal width and height. Fixed admin side php warnings. Fixed tax handling.
+Version 2.3.8 - Fixed shipping and billing checks. Added support to change payment method in admin and reflect it in Econt Delivery. Added description to package generation method. Added language to js scripts. Added release log. Early added software mark.
+Version 2.2.7 - Added response check - fixed the error from parsed response. Updated version.
+Version 2.2.6 - Econt Delivery Api response update.
+Version 2.2.5 - Change frontend (again) from grid view to modal window. Added language support.
+Version 2.1.4 - Added Coupons support, woocommerce version compatibility: low - from 3.0 high - to 3.7
+Version 2.0.0 - Fixed multiple issues. Updated field names. Changed styles.
+Version 1.1.5 - Fixed js logic on frontend. Updated mid-version.
+Version 1.0.5 - Reset loader and fix some strange error single order view.
+Version 1.0.4 - Fixed admin_path.
+Version 1.0.3 - Get dynamic currency symbol. Fix "Authorization" header issue.
+Version 1.0.2 - Small bugfixes and frontend stuff.
+Version 1.0.1 - Small bugfixes and frontend stuff.
+Version 1.0.0 - Production ready version

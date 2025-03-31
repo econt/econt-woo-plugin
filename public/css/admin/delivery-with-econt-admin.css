@@ -1,0 +1,61 @@
+.delivery-with-econt-generate-waybill {
+    margin-top: 25px;
+}
+
+th.column-generate_waybill {
+    width: 14ch !important;
+}
+
+a.delivery-with-econt-check-waybill-status {
+    height: 25px;
+    width: 25px;
+    padding: 2px !important;
+    position: relative;
+}
+
+a.delivery-with-econt-check-waybill-status > div.spinner {
+    position: absolute;
+    left: 0;
+    top: 0;
+    margin-left: 3px;
+}
+
+.econt-action-buttons {
+    float: right;
+}
+
+
+#waybillFrame {
+    width: 100vw;
+    height: 85vh;
+}
+
+@media screen and (min-width: 780px) and (max-width: 879px){
+    #waybillFrame {
+        max-width: 85vw;
+    }
+}
+
+@media screen and (min-width: 880px) and (max-width: 1319px) {
+    #waybillFrame {
+        max-width: 60vw;
+    }
+}
+
+@media screen and (min-width: 1320px) and (max-width: 1519px) {
+    #waybillFrame {
+        max-width: 50vw;
+    }
+}
+
+@media screen and (min-width: 1520px) {
+    #waybillFrame {
+        width: 100%;
+    }
+
+    #waybillFrameWrapper {
+        max-width: 760px;
+        width: 100vw;
+    }
+}
+
