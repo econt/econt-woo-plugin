@@ -112,16 +112,12 @@ if ( ! function_exists( 'econt_init_blocks' ) ) {
 require 'src/plugin-update-checker/plugin-update-checker.php';
 use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
 
-if ( class_exists( 'PucFactory' ) ) {
-    // The plugin-update-checker library is already loaded.
-    $myUpdateChecker = PucFactory::buildUpdateChecker(
-        'https://github.com/econt/econt-woo-plugin', // Official Econt repository
-        __FILE__,
-        'deliver-with-econt'
-    );
-    
-    // Set the branch that contains the stable release.
-    $myUpdateChecker->setBranch( 'main' );
-} 
+// The plugin-update-checker library is already loaded.
+$myUpdateChecker = PucFactory::buildUpdateChecker(
+	'https://github.com/econt/econt-woo-plugin', // Official Econt repository
+	__FILE__,
+	'deliver-with-econt'
+);
 
-
+// Set the branch that contains the stable release.
+$myUpdateChecker->setBranch( 'main' );
