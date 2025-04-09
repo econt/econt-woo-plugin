@@ -13,7 +13,7 @@
  * Plugin URI:        https://econt.com/developers/
  * Description:       Econt Shipping Module
  * Version:           2.5.61
- * Author:            Econt Express LTD.
+ * Author:            Econt Express LTD
  * Author URI:        https://econt.com/developers/
  * License:           GPL-2.0+
  * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
