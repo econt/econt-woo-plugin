@@ -12,7 +12,7 @@
  * Plugin Name:       Econt Delivery
  * Plugin URI:        https://econt.com/developers/
  * Description:       Econt Shipping Module
- * Version:           2.5.6
+ * Version:           2.5.61
  * Author:            Econt Express LTD.
  * Author URI:        https://econt.com/developers/
  * License:           GPL-2.0+
