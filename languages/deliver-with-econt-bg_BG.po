@@ -6,7 +6,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/deliver-with-"
 "econt\n"
 "POT-Creation-Date: 2019-11-25T14:54:00+02:00\n"
-"PO-Revision-Date: 2025-04-10 00:34+0300\n"
+"PO-Revision-Date: 2025-04-10 01:27+0300\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "Language: bg_BG\n"
@@ -33,7 +33,7 @@ msgid "Econt Shipping Module"
 msgstr "Достави с Еконт"
 
 #. Author of the plugin
-msgid "Econt Express LTD"
+msgid "Econt Express LTD."
 msgstr "Еконт Експрес АД"
 
 #: includes/admin/class-delivery-with-econt-admin.php:21
