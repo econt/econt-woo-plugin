@@ -254,6 +254,8 @@ function delivery_with_econt_generate_order_service( $order_id )
 
 add_action( 'woocommerce_checkout_order_processed', 'delivery_with_econt_generate_order_service',  1, 1  );
 add_action( 'woocommerce_checkout_update_order_meta', 'delivery_with_econt_generate_order_service',  1, 1  );
+add_action( 'woocommerce_store_api_checkout_order_processed', 'delivery_with_econt_generate_order_service', 10, 2 );
+
 
 /**
  * Hook for adding column to the order list table

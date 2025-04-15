@@ -14,6 +14,9 @@ Econt WooCommerce shipping module.
 
 == Changelog ==
 
+= 2.5.7 = 15.04.2025
+* Block based checkout fix - Send order data to Econt platform;
+
 = 1.0 =
 * A change since the previous version.
 * Another change.
