@@ -372,29 +372,35 @@ function econt_delivery_load_plugin_textdomain() {
 add_action( 'plugins_loaded', 'econt_delivery_load_plugin_textdomain' );
 
 //server side shipping price validation SR-103462
-function action_woocommerce_checkout_process($wccs_custom_checkout_field_pro_process )
+function action_woocommerce_checkout_process($wccs_custom_checkout_field_pro_process)
 {
-   global $woocommerce;
-   $chosen_methods = WC()->session->get( 'chosen_shipping_methods' );
-   $chosen_shipping = reset($chosen_methods);
+	global $woocommerce;
+	$chosen_methods = WC()->session->get('chosen_shipping_methods');
 
-   if ($chosen_shipping != Delivery_With_Econt_Options::get_plugin_name()) {
-       return;
-   }
+	// Make sure $chosen_methods is an array before using reset()
+	if (!is_array($chosen_methods) || empty($chosen_methods)) {
+		return;
+	}
 
-   if(!isset($_COOKIE['econt_customer_info_id'])) {
-       function my_woocommerce_add_error( $error ) {
-           $error = __("You can't submit order, if shipping price is not calculated properly!", 'deliver-with-econt');
-           return $error;
-       }
+	$chosen_shipping = reset($chosen_methods);
 
-       add_filter( 'woocommerce_add_error', 'my_woocommerce_add_error' );
+	if ($chosen_shipping != Delivery_With_Econt_Options::get_plugin_name()) {
+		return;
+	}
 
-       throw new Exception( __("You can't submit order, if shipping price is not calculated properly!", 'deliver-with-econt') );
-   }
+	if(!isset($_COOKIE['econt_customer_info_id'])) {
+		function my_woocommerce_add_error($error) {
+			$error = __("You can't submit order, if shipping price is not calculated properly!", 'deliver-with-econt');
+			return $error;
+		}
+
+		add_filter('woocommerce_add_error', 'my_woocommerce_add_error');
+
+		throw new Exception(__("You can't submit order, if shipping price is not calculated properly!", 'deliver-with-econt'));
+	}
 };
 
-add_action( 'woocommerce_checkout_process', 'action_woocommerce_checkout_process', 10, 1 );
+add_action('woocommerce_checkout_process', 'action_woocommerce_checkout_process', 10, 1);
 
 /**
  * @param $id_order
