@@ -1,4 +1,4 @@
-Version 2.5.9 - 27.05.2025 - Send data to external platform when plugin is updated;
+Version 2.5.9 - 27.05.2025 - Send data to external platform when plugin is updated; Force send data;
 Version 2.5.8 - 22.04.2025 - Fix error while server validate shipping price
 Version 2.5.7 - 15.04.2025 - Block based checkout fix - Send order data to Econt platform;
 Version 2.5.62 - Update BG system translates.

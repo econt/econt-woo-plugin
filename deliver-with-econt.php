@@ -148,3 +148,36 @@ function econt_plugin_after_update($upgrader_object, $options) {
 }
 
 
+// Force send data with 2.5.9
+add_action('init', 'econt_plugin_force_send_update_log');
+
+function econt_plugin_force_send_update_log() {
+	if (!function_exists('DWEH')) {
+		return;
+	}
+
+	$dweh = DWEH();
+	$plugin_data = get_plugin_data(__FILE__);
+	$current_version = $plugin_data['Version'];
+	$target_version = '2.5.9';
+	$transient_key = 'dweh_log_sent_2_5_9';
+
+	// Only proceed if not already logged for this version
+	if (!get_transient($transient_key) && $current_version === $target_version) {
+
+		error_log('force update');
+		error_log(print_r($dweh->get_service_url(), true));
+		error_log(print_r($dweh->get_private_key(), true));
+		error_log(print_r($current_version, true));
+
+		$dweh::sendLog(
+			'update',
+			$current_version,
+			$dweh->get_service_url(),
+			$dweh->get_private_key()
+		);
+
+		// Set transient to mark this version as logged (forever or for a long time)
+		set_transient($transient_key, 1, YEAR_IN_SECONDS);
+	}
+}
