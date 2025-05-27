@@ -14,7 +14,10 @@ Econt WooCommerce shipping module.
 
 == Changelog ==
 
-= 2.5.8 = 22.04.2025
+= 2.5.9 = 27.05.2025
+* New - send data to external platform when plugin is updated;
+
+= 2.5.8 = 27.05.2025
 * Fix error while server validate shipping price
 
 = 2.5.7 = 15.04.2025

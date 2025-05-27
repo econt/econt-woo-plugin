@@ -12,7 +12,7 @@
  * Plugin Name:       Econt Delivery
  * Plugin URI:        https://econt.com/developers/
  * Description:       Econt Shipping Module
- * Version:           2.5.8
+ * Version:           2.5.9
  * Author:            Econt Express LTD.
  * Author URI:        https://econt.com/developers/
  * License:           GPL-2.0+
@@ -121,3 +121,30 @@ $myUpdateChecker = PucFactory::buildUpdateChecker(
 
 // Set the branch that contains the stable release.
 $myUpdateChecker->setBranch( 'main' );
+
+// Send data to Econt planform when plugin update
+add_action('upgrader_process_complete', 'econt_plugin_after_update', 10, 2);
+function econt_plugin_after_update($upgrader_object, $options) {
+	if ($options['action'] === 'update' && $options['type'] === 'plugin') {
+		if (!empty($options['plugins'])) {
+			foreach ($options['plugins'] as $plugin_file) {
+				// Only run for your plugin
+				if (strpos($plugin_file, 'deliver-with-econt.php') !== false) {
+
+					$dweh = DWEH();
+
+					error_log('update');
+					error_log(print_r($dweh->get_service_url(), true));
+					error_log(print_r($dweh->get_private_key(), true));
+					error_log(print_r(get_plugin_data(WP_PLUGIN_DIR . '/' . $plugin_file)['Version'], true));
+
+					$dweh::sendLog('update', get_plugin_data(WP_PLUGIN_DIR . '/' . $plugin_file)['Version'], $dweh->get_service_url(), $dweh->get_private_key());
+
+					break;
+				}
+			}
+		}
+	}
+}
+
+
