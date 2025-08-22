@@ -260,20 +260,25 @@ add_action( 'woocommerce_store_api_checkout_order_processed', 'delivery_with_eco
 /**
  * Hook for adding column to the order list table
  */
-function delivery_with_econt_add_waybill_column( $columns )
-{    
-    return Delivery_With_Econt_Admin::add_waybill_column( $columns );
+// legacy – for CPT-based orders
+add_filter( 'manage_edit-shop_order_columns', 'delivery_with_econt_add_waybill_column' );
+// for HPOS-based orders
+add_filter( 'manage_woocommerce_page_wc-orders_columns', 'delivery_with_econt_add_waybill_column' );
+
+function delivery_with_econt_add_waybill_column( $columns ) {
+	return Delivery_With_Econt_Admin::add_waybill_column($columns);
 }
-add_filter( 'manage_edit-shop_order_columns', 'delivery_with_econt_add_waybill_column', 20 );
 
 /**
  * Hook to fill the newly added column with data
  */
-function delivery_with_econt_add_waybill_column_content( $column )
-{
-    return Delivery_With_Econt_Admin::add_waybill_column_content( $column );
+// legacy – for CPT-based orders
+add_action( 'manage_shop_order_posts_custom_column', 'delivery_with_econt_add_waybill_column_content', 25, 2 );
+// for HPOS-based orders
+add_action( 'manage_woocommerce_page_wc-orders_custom_column', 'delivery_with_econt_add_waybill_column_content', 25, 2 );
+function delivery_with_econt_add_waybill_column_content( $column_name, $order_or_order_id ) {
+	return Delivery_With_Econt_Admin::add_waybill_column_content($column_name, $order_or_order_id);
 }
-add_action( 'manage_shop_order_posts_custom_column', 'delivery_with_econt_add_waybill_column_content' );
 
 /**
  * Hook to update Econt service and recalculate the shipping

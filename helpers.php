@@ -172,7 +172,8 @@ class Delivery_With_Econt_Helper
 
         $parsed_error = json_decode($response, true);
 
-        if( $parsed_error['type'] != '' ) {
+	    // Check if the array and the 'type' key exist before accessing
+	    if (is_array($parsed_error) && isset($parsed_error['type']) && $parsed_error['type'] != '') {
             $message =[];            
             $message['text'] = $parsed_error['message'];
             $message['type'] = "error";
@@ -318,7 +319,17 @@ class Delivery_With_Econt_Helper
 
 		$order = wc_get_order( absint( $_GET['order_id'] ) ); // WPCS: sanitization ok.
 
-		if ( $order ) {            
+		if ( $order ) {
+
+			// Get formatted addresses
+			$billing_address = $order->get_formatted_billing_address();
+			$shipping_address = $order->get_formatted_shipping_address();
+
+			// Get payment method
+			$payment_method = $order->get_payment_method();
+			$payment_method_title = $order->get_payment_method_title();
+			$payment_via = $payment_method_title ? $payment_method_title : $payment_method;
+
 			wp_send_json_success( 
                 array(
                     'data'                       => $order->get_data(),

@@ -18,7 +18,7 @@ class Delivery_With_Econt_Admin
             $new_columns[ $column_name ] = $column_info;
 
             if ( 'order_date' === $column_name ) {
-                $new_columns['generate_waybill column-primary'] = __( 'Waybill', 'deliver-with-econt' );
+	            $new_columns['generate_waybill'] = __( 'Waybill', 'deliver-with-econt' );
             }
         }
     
@@ -28,14 +28,18 @@ class Delivery_With_Econt_Admin
     /**
      * Populate the "Generate Waybill" column with relevent data
      */
-    public static function add_waybill_column_content( $column ) {
-        global $post;
+	public static function add_waybill_column_content( $column, $order_or_order_id ) {
+//        global $post;
 
-        if ( 'generate_waybill column-primary' === $column ) {
+		if ( 'generate_waybill' === $column ) {
 
-			$order    = wc_get_order( $post->ID );
-			$waybill_id = $order->get_meta('_order_waybill_id');
+			$order = wc_get_order( $order_or_order_id );
+			if ( ! $order ) {
+				return; // safety check
+			}
 
+			// Use WordPress method instead of WC method since WC cache is out of sync
+			$waybill_id = get_post_meta($order->get_id(), '_order_waybill_id', true);
 			if( $order->has_shipping_method(Delivery_With_Econt_Options::get_plugin_name()) && static::check_status( $order->get_status() ) ) {
 				if( WC()->version < '3.2.0' ) {
 					?>
