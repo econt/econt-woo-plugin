@@ -24,6 +24,9 @@ a.delivery-with-econt-check-waybill-status > div.spinner {
     float: right;
 }
 
+a.delivery-with-econt-sync-waybill{
+    width: fit-content;
+}
 
 #waybillFrame {
     width: 100vw;

@@ -45,160 +45,174 @@ class Delivery_With_Econt_Helper
      * @return string - the new price
      * @return bool - false - to finish the execution
      */
-    public function sync_order( $local_order = null, $items = [], $get_new_price = false, $payment_token = "" ) {
-        if ( ! $local_order ) return false;
-        if( $local_order instanceof WC_Order ) {
-            $order = $local_order;
-        } else {
-            $order = wc_get_order($local_order);
-        }
+	public function sync_order( $local_order = null, $items = [], $get_new_price = false, $payment_token = "" ) {
+		error_log('sync_order');
+		error_log($local_order);
+		error_log(111);
+		if ( ! $local_order ) {
+			error_log("[Econt Sync] No local order provided");
+			return false;
+		}
 
-        if($order->has_shipping_method(Delivery_With_Econt_Options::get_plugin_name()) === false) return false;
-        
-        $count = 0;
-        $order_id = $order->get_id();
-        $id = '';
+		$order = ( $local_order instanceof WC_Order ) ? $local_order : wc_get_order($local_order);
+		if ( ! $order || ! $order instanceof WC_Order ) {
+			error_log("[Econt Sync] Invalid order object");
+			return false;
+		}
 
-        if (array_key_exists('_payment_method', $_POST)) {
-            $cod = sanitize_text_field(in_array($_POST['_payment_method'], ['cod', 'econt_payment'])) ? true : '';
-        } else {
-            $cod = in_array($order->get_payment_method(), ['cod', 'econt_payment']) ? true : '';
-        }
-        
-        if ( array_key_exists( 'econt_customer_info_id', $_COOKIE ) ) {
-            $id = $_COOKIE['econt_customer_info_id'];
-            update_post_meta( $order_id, '_customer_info_id', $id );
-            setcookie("econt_customer_info_id",$id,time()-1);
-            setcookie("econt_shippment_price",'1000',time()-1);
-        } else {
-            $id = $order->get_meta('_customer_info_id');
-        }        
+		// Skip if order contains only virtual products
+		if ($this->order_contains_only_virtual_products($order)) {
+			error_log("[Econt Sync] Order contains only virtual products, skipping sync");
+			return false;
+		}
 
-        $data = array(
-            'id' => '', 
-            'orderNumber' => $order_id,
-            'status' => $order->get_status(),
-            'orderTime' => '',
-            'cod' => $cod,
-            'partialDelivery' => '',
-            'currency' => get_woocommerce_currency(),
-            'shipmentDescription' => '',
-            'shipmentNumber' => '',
-            'clientSoftware' => 'DeliveryWooCommerce_v1',
-            'customerInfo' => array( 
-                'id' => $id,
-                'name' => '',
-                'face' => '',
-                'phone' => '',
-                'email' => '',
-                'countryCode' => '',
-                'cityName' => '',
-                'postCode' => '',
-                'officeCode' => '',
-                'zipCode' => '',
-                'address' => '',
-                'priorityFrom' => '',
-                'priorityTo' => ''
-            ),        
-            'items' => array(
-                
-            ),
-            'paymentToken' => $payment_token
-        );
+		// Ensure shipping method is correct
+		if ( ! $order->has_shipping_method( Delivery_With_Econt_Options::get_plugin_name() ) ) {
+			error_log("[Econt Sync] Order does not use Econt shipping method");
+			return false;
+		}
 
-        $iteration = 1;
-        foreach (count($items) ? $items['order_item_id'] : $order->get_items( 'line_item' ) as $_item) {
-            if (count($items)) {
-                $item = new WC_Order_Item_Product(intval($_item));
-                $total_count = count($items['order_item_id']);
-            } else {
-                $item = $_item;
-                $total_count = count($order->get_items('line_item'));
-            }
+		$order_id = $order->get_id();
+		$cod = false;
 
-            $product = $item->get_product();
-            // $price  = $product->get_price();
-            $price = $item->get_total() + $item->get_total_tax();
-            $count  = $item->get_quantity();
-            $weight = floatval($product->get_weight());
-            $quantity = intval($item->get_quantity());
-            $product_name = $product->get_name();
+		if ( isset($_POST['_payment_method']) ) {
+			$cod = in_array( sanitize_text_field($_POST['_payment_method']), ['cod', 'econt_payment'], true );
+		} else {
+			$cod = in_array( $order->get_payment_method(), ['cod', 'econt_payment'], true );
+		}
 
-//            attributes test
-//            if($product->is_type('variation')) {
-//                $product_name_array = explode(' - ', $product_name);
-//
-//                $product_name = str_replace($product_name_array[1], strtoupper($product_name_array[1]), $product_name);
-//            }
+		$id = '';
+		if ( isset($_COOKIE['econt_customer_info_id']) ) {
+			$id = sanitize_text_field($_COOKIE['econt_customer_info_id']);
+			update_post_meta( $order_id, '_customer_info_id', $id );
+			setcookie("econt_customer_info_id", '', time() - 3600);
+			setcookie("econt_shippment_price", '', time() - 3600);
+		} else {
+			$id = $order->get_meta('_customer_info_id');
+		}
 
-//            end
+		$data = [
+			'id' => '',
+			'orderNumber' => $order_id,
+			'status' => $order->get_status(),
+			'orderTime' => '',
+			'cod' => $cod,
+			'partialDelivery' => '',
+			'currency' => get_woocommerce_currency(),
+			'shipmentDescription' => '',
+			'shipmentNumber' => '',
+			'clientSoftware' => 'DeliveryWooCommerce_v1',
+			'customerInfo' => [
+				'id' => $id,
+				'name' => $order->get_billing_first_name() . ' ' . $order->get_billing_last_name(),
+				'face' => '',
+				'phone' => $order->get_billing_phone(), // <- добавен телефон
+				'email' => $order->get_billing_email(),
+				'countryCode' => $order->get_billing_country(),
+				'cityName' => $order->get_billing_city(),
+				'postCode' => $order->get_billing_postcode(),
+				'officeCode' => '',
+				'zipCode' => '',
+				'address' => $order->get_billing_address_1(),
+				'priorityFrom' => '',
+				'priorityTo' => ''
+			],
+			'items' => [],
+			'paymentToken' => $payment_token
+		];
 
-            array_push($data['items'], array( 
-                'name' => $product_name,
-                'SKU' => $product->get_sku(),
-                'URL' => '',
-                'count' => $quantity,
-                'hideCount' => '',
-                // 'totalPrice' => $price * $quantity,
-                'totalPrice' => $price,
-                'totalWeight' => $weight * $quantity
-            ));
+		$items_to_process = count($items) ? $items['order_item_id'] : $order->get_items('line_item');
 
-            $data['shipmentDescription'] .= $product_name;
-            if ($iteration < $total_count) {
-                $data['shipmentDescription'] .= ', ';
-            }
+		$iteration = 1;
+		foreach ($items_to_process as $_item) {
+			if ( count($items) ) {
+				$item = new WC_Order_Item_Product(intval($_item));
+				$total_count = count($items['order_item_id']);
+			} else {
+				$item = $_item;
+				$total_count = count($items_to_process);
+			}
 
-            $iteration += 1;
+			$product = $item->get_product();
+			if ( ! $product ) continue;
 
-        }
+			$price = $item->get_total() + $item->get_total_tax();
+			$quantity = intval($item->get_quantity());
+			$weight = floatval($product->get_weight());
+			$product_name = $product->get_name();
 
-        if ($data['cod'] && !empty($data['items'])) $data['partialDelivery'] = true;
+			$data['items'][] = [
+				'name' => $product_name,
+				'SKU' => $product->get_sku(),
+				'URL' => '',
+				'count' => $quantity,
+				'hideCount' => '',
+				'totalPrice' => $price,
+				'totalWeight' => $weight * $quantity
+			];
 
-        $curl = curl_init();
-        curl_setopt($curl, CURLOPT_URL, $this->get_service_url() . 'services/OrdersService.updateOrder.json');
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
-        curl_setopt($curl, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json',
-        'Authorization: ' . $this->get_private_key()
-        ]);
-        curl_setopt($curl, CURLOPT_POST, true);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($data));
-        curl_setopt($curl, CURLOPT_TIMEOUT, 10);
-        // Изпращане на заявката
-        $response = curl_exec($curl);
+			$data['shipmentDescription'] .= $product_name;
+			if ( $iteration < $total_count ) {
+				$data['shipmentDescription'] .= ', ';
+			}
 
-        $parsed_error = json_decode($response, true);
+			$iteration++;
+		}
 
-	    // Check if the array and the 'type' key exist before accessing
-	    if (is_array($parsed_error) && isset($parsed_error['type']) && $parsed_error['type'] != '') {
-            $message =[];            
-            $message['text'] = $parsed_error['message'];
-            $message['type'] = "error";
-            // if we recieve error message from econt, we save it in the database for display it later
-            update_post_meta( $order->get_id(), '_sync_error', sanitize_text_field( $message['text'] ) );
-        }
-        if ( $get_new_price ) {
-            curl_setopt($curl, CURLOPT_URL, $this->get_service_url() . 'services/OrdersService.getPrice.json');
-            $price = curl_exec($curl);
+		if ( $data['cod'] && !empty($data['items']) ) {
+			$data['partialDelivery'] = true;
+		}
 
-            return json_decode($price, true)['receiverDueAmount'];
-        }
+		$curl = curl_init();
+		curl_setopt($curl, CURLOPT_URL, $this->get_service_url() . 'services/OrdersService.updateOrder.json');
+		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+		curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+		curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
+		curl_setopt($curl, CURLOPT_HTTPHEADER, [
+			'Content-Type: application/json',
+			'Authorization: ' . $this->get_private_key()
+		]);
+		curl_setopt($curl, CURLOPT_POST, true);
+		curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($data));
+		curl_setopt($curl, CURLOPT_TIMEOUT, 10);
 
-        if ( function_exists( 'wc_st_add_tracking_number' ) && isset( $response['shippingMethod'] ) ) {
-            wc_st_add_tracking_number( 
-                $order->get_id(), 
-                $response['shippingNumber'], 
-                Delivery_With_Econt_Options::get_shipping_method_name(), 
-                date("Y-m-d H:i:s"), 
-                $this->get_tracking_url( $response['shippingNumber'] ) 
-            );
-        }
-        
-        return false;
-    }
+		$response = curl_exec($curl);
+		$curl_error = curl_error($curl);
+		curl_close($curl);
+
+		if ( $curl_error ) {
+			error_log("[Econt Sync] CURL Error: $curl_error");
+			return false;
+		}
+
+		$parsed_response = json_decode($response, true);
+
+		if ( isset($parsed_response['type']) && $parsed_response['type'] !== '' ) {
+			$message = [
+				'text' => $parsed_response['message'] ?? 'Unknown error',
+				'type' => 'error'
+			];
+			update_post_meta( $order_id, '_sync_error', sanitize_text_field( $message['text'] ) );
+			error_log("[Econt Sync] API Error: " . $message['text']);
+		}
+
+		if ( $get_new_price ) {
+			$curl = curl_init();
+			curl_setopt($curl, CURLOPT_URL, $this->get_service_url() . 'services/OrdersService.getPrice.json');
+			curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($data));
+			curl_setopt($curl, CURLOPT_HTTPHEADER, [
+				'Content-Type: application/json',
+				'Authorization: ' . $this->get_private_key()
+			]);
+			$price_response = curl_exec($curl);
+			curl_close($curl);
+
+			return json_decode($price_response, true)['receiverDueAmount'] ?? false;
+		}
+
+		return true;
+	}
 
     /**
      * Check if we using Demo service
@@ -401,4 +415,24 @@ class Delivery_With_Econt_Helper
         curl_close($curl);
     }
 
+	/**
+	 * Check if order contains only virtual products
+	 *
+	 * @param WC_Order $order
+	 * @return bool
+	 */
+	public function order_contains_only_virtual_products($order) {
+		if (!$order) {
+			return false;
+		}
+
+		foreach ($order->get_items() as $item) {
+			$product = $item->get_product();
+			if ($product && !$product->is_virtual()) {
+				return false;
+			}
+		}
+
+		return true;
+	}
 }

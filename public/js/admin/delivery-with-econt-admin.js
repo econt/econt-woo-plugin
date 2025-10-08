@@ -10,7 +10,11 @@ jQuery( document ).ready( function (dwe) {
 
   dwe( ".delivery-with-econt-generate-waybill-button" ).click( onPreview );
   dwe( ".delivery-with-econt-check-waybill-status" ).click( refresh );
-  
+    dwe( ".delivery-with-econt-sync-waybill" ).click( function() {
+        var orderId = jQuery(this).data('order-id');
+        sync_waybill(orderId);
+    });
+
   // bind the r event listener to check status async function
   function refresh () {    
     // this.preventDefault();

@@ -247,11 +247,19 @@ function activate_delivery_with_econt() {
  * Sync the shop order with Econt
  */
 
-function delivery_with_econt_generate_order_service( $order_id )
-{
-    DWEH()->sync_order( $order_id );
+function delivery_with_econt_generate_order_service($order_id = null) {
+	// Skip if order contains only virtual products
+	if (empty($order_id) && isset($_POST['order_id'])) {
+		$order_id = intval($_POST['order_id']);
+	}
+	$order = wc_get_order($order_id);
+error_log($order);
+	if ($order && DWEH()->order_contains_only_virtual_products($order)) {
+		return;
+	}
+error_log('test');
+	DWEH()->sync_order($order_id);
 }
-
 add_action( 'woocommerce_checkout_order_processed', 'delivery_with_econt_generate_order_service',  1, 1  );
 add_action( 'woocommerce_checkout_update_order_meta', 'delivery_with_econt_generate_order_service',  1, 1  );
 add_action( 'woocommerce_store_api_checkout_order_processed', 'delivery_with_econt_generate_order_service', 10, 2 );
@@ -279,6 +287,186 @@ add_action( 'manage_woocommerce_page_wc-orders_custom_column', 'delivery_with_ec
 function delivery_with_econt_add_waybill_column_content( $column_name, $order_or_order_id ) {
 	return Delivery_With_Econt_Admin::add_waybill_column_content($column_name, $order_or_order_id);
 }
+
+
+
+/**
+ * Add bulk action for syncing Econt waybills
+ * Compatible with both traditional and HPOS systems
+ */
+
+// Add bulk actions to both systems
+add_filter('bulk_actions-edit-shop_order', 'add_econt_sync_bulk_action');
+add_filter('bulk_actions-woocommerce_page_wc-orders', 'add_econt_sync_bulk_action');
+
+function add_econt_sync_bulk_action($actions) {
+	// Create a new array to control the order
+	$new_actions = array();
+
+	// Add all existing actions except trash
+	foreach ($actions as $key => $value) {
+		if ($key !== 'trash') {
+			$new_actions[$key] = $value;
+		}
+	}
+
+	// Add our Econt sync action before trash
+	$new_actions['econt_sync_waybill'] = __('Sync Econt Waybills', 'deliver-with-econt');
+
+	// Add trash at the end if it exists
+	if (isset($actions['trash'])) {
+		$new_actions['trash'] = $actions['trash'];
+	}
+
+	return $new_actions;
+}
+
+// Handle bulk actions for both systems
+add_filter('handle_bulk_actions-edit-shop_order', 'handle_econt_sync_bulk_action', 10, 3);
+add_filter('handle_bulk_actions-woocommerce_page_wc-orders', 'handle_econt_sync_bulk_action', 10, 3);
+
+function handle_econt_sync_bulk_action($redirect_to, $action, $post_ids) {
+	if ($action !== 'econt_sync_waybill') {
+		return $redirect_to;
+	}
+
+	// Verify nonce for security
+	if (!wp_verify_nonce($_REQUEST['_wpnonce'], 'bulk-orders')) {
+		return $redirect_to;
+	}
+
+	// Check user capabilities
+	if (!current_user_can('edit_shop_orders')) {
+		return $redirect_to;
+	}
+
+	$processed_count = 0;
+	$error_count = 0;
+	$errors = array();
+
+	foreach ($post_ids as $order_id) {
+		$order = wc_get_order($order_id);
+
+		if (!$order) {
+			$error_count++;
+			continue;
+		}
+
+		// Skip if order contains only virtual products
+		if (DWEH()->order_contains_only_virtual_products($order)) {
+			continue;
+		}
+
+		// Skip if not using Econt shipping
+		if (!$order->has_shipping_method(Delivery_With_Econt_Options::get_plugin_name())) {
+			continue;
+		}
+
+		try {
+			// Use your existing sync function
+			$result = delivery_with_econt_generate_order_service($order_id);
+
+			if ($result !== false) {
+				$processed_count++;
+				$order->add_order_note(__('Waybill synced via bulk action.', 'deliver-with-econt'));
+			} else {
+				$error_count++;
+				$errors[] = sprintf(__('Failed to sync order #%d', 'deliver-with-econt'), $order_id);
+			}
+		} catch (Exception $e) {
+			$error_count++;
+			$errors[] = sprintf(__('Error syncing order #%d: %s', 'deliver-with-econt'), $order_id, $e->getMessage());
+			error_log("[Econt Bulk Sync] Error for order $order_id: " . $e->getMessage());
+		}
+	}
+
+	// Store results in transient for admin notice
+	set_transient('econt_bulk_sync_results', array(
+		'processed' => $processed_count,
+		'errors' => $error_count,
+		'error_messages' => $errors
+	), 60);
+
+	// Add query args for admin notice
+	$redirect_to = add_query_arg(array(
+		'bulk_action' => 'econt_sync_waybill',
+		'processed_count' => $processed_count,
+		'error_count' => $error_count
+	), $redirect_to);
+
+	return $redirect_to;
+}
+
+// Show admin notice after bulk action
+add_action('admin_notices', 'econt_bulk_sync_admin_notice');
+
+function econt_bulk_sync_admin_notice() {
+	if (empty($_REQUEST['bulk_action']) || $_REQUEST['bulk_action'] !== 'econt_sync_waybill') {
+		return;
+	}
+
+	$results = get_transient('econt_bulk_sync_results');
+	if (!$results) {
+		return;
+	}
+
+	$processed_count = intval($results['processed']);
+	$error_count = intval($results['errors']);
+	$errors = $results['error_messages'];
+
+	// Delete the transient
+	delete_transient('econt_bulk_sync_results');
+
+	if ($processed_count > 0) {
+		printf(
+			'<div class="notice notice-success is-dismissible"><p>%s</p></div>',
+			sprintf(
+				_n(
+					'Successfully synced %d Econt waybill.',
+					'Successfully synced %d Econt waybills.',
+					$processed_count,
+					'deliver-with-econt'
+				),
+				$processed_count
+			)
+		);
+	}
+
+	if ($error_count > 0) {
+		$error_message = sprintf(
+			_n(
+				'Failed to sync %d order.',
+				'Failed to sync %d orders.',
+				$error_count,
+				'deliver-with-econt'
+			),
+			$error_count
+		);
+
+		// Show first few error messages
+		if (!empty($errors)) {
+			$error_message .= '<br><strong>' . __('Errors:', 'deliver-with-econt') . '</strong><br>';
+			$error_message .= implode('<br>', array_slice($errors, 0, 5));
+
+			if (count($errors) > 5) {
+				$error_message .= '<br>' . sprintf(__('... and %d more errors.', 'deliver-with-econt'), count($errors) - 5);
+			}
+		}
+
+		printf(
+			'<div class="notice notice-error is-dismissible"><p>%s</p></div>',
+			$error_message
+		);
+	}
+
+	if ($processed_count === 0 && $error_count === 0) {
+		printf(
+			'<div class="notice notice-warning is-dismissible"><p>%s</p></div>',
+			__('No orders were processed. Make sure selected orders use Econt delivery and contain physical products.', 'deliver-with-econt')
+		);
+	}
+}
+
 
 /**
  * Hook to update Econt service and recalculate the shipping

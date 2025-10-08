@@ -1,3 +1,4 @@
+Version 3.0.1 - 09.10.2025 - feature: Add bulk action for syncing Econt waybills;
 Version 3.0.0 - 02.10.2025 - Different approach to get current shipping method; Optimize js file;
 Version 2.6.0 - 22.08.2025 - Update Admin columns to work with new HPOS orders; Fix waybill order meta; Clear PHP warnings;
 Version 2.5.9 - 27.05.2025 - Send data to external platform when plugin is updated; Force send data;
