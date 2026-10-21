@@ -18,7 +18,7 @@
 - Валиден идентификатор на магазина и частен ключ, получени от [Econt Delivery](https://delivery.econt.com/).
 
 ## Инсталация
-1. Изтеглете ZIP архива на плъгина от GitHub Releases.
+1. Изтеглете [econt-woo-plugin-main.zip](https://github.com/econt/econt-woo-plugin/releases/latest/download/econt-woo-plugin-main.zip) от [последния release](https://github.com/econt/econt-woo-plugin/releases/latest).
 2. В администраторския панел на WordPress отидете на **Плъгини > Добавяне на нов > Качване на плъгин**.
 3. Качете изтегления ZIP файл.
 4. Активирайте плъгина от списъка с инсталирани плъгини.
