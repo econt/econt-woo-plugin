@@ -1,3 +1,4 @@
+Version 3.0.2 - 22.10.2026 - Admin: the waybill status for the Generate/Print and refresh buttons is requested through the WordPress server;
 Version 3.0.1 - 09.10.2025 - feature: Add bulk action for syncing Econt waybills;
 Version 3.0.0 - 02.10.2025 - Different approach to get current shipping method; Optimize js file;
 Version 2.6.0 - 22.08.2025 - Update Admin columns to work with new HPOS orders; Fix waybill order meta; Clear PHP warnings;

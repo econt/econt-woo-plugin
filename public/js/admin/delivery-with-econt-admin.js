@@ -23,18 +23,14 @@ jQuery( document ).ready( function (dwe) {
     let waybill_id = global_waybill_id ? global_waybill_id : s.data( "waybill-id" )
     let i = '#spiner-order-' + order_id
     let a = '#action-waybill-' + order_id
-    let econt_service_url = dwe( 'meta[name="econt-service-url"]' )[0]
-    let private_key = dwe( 'meta[name="econt-private-key"]' )[0]
     let currency = s.data( "econt-currency" )
-    
-    private_key = atob( private_key.content )
 
     s.css('visibility', 'hidden')
     dwe(i).addClass('is-active')
 
 
-    // send ajax POST request to Econt servers
-    r = request(econt_service_url, order_id, waybill_id, private_key, currency, s, i)
+    // ask Econt for the waybill status through the server
+    r = request(order_id, waybill_id, currency, s, i)
     r.then( function( response ) {
       // setTimeout( () => {
         s.css('visibility', 'visible')        
@@ -84,13 +80,10 @@ jQuery( document ).ready( function (dwe) {
     let order_id = t.data( "order-id" );
     // let pdf_url = ''
     let waybill_id;
-    let econt_service_url = dwe( 'meta[name="econt-service-url"]' )[0];
-    let private_key = dwe( 'meta[name="econt-private-key"]' )[0];
     let currency = t.data( "econt-currency" );
     let payment_method = t.data("payment_method");
     let order_status = t.data("order_status");
 
-    private_key = atob( private_key.content );
     global_order_id = order_id;
 
     if (update && global_waybill_id) waybill_id = global_waybill_id;
@@ -104,8 +97,8 @@ jQuery( document ).ready( function (dwe) {
         }
     }
 
-    // send ajax POST request to Econt servers
-    r = request(econt_service_url, order_id, waybill_id, private_key, currency);
+    // ask Econt for the waybill status through the server
+    r = request(order_id, waybill_id, currency);
     // console.log(r, params, waybill_id);
     
     r.then( (response) => {
@@ -230,27 +223,19 @@ jQuery( document ).ready( function (dwe) {
         });
     }
 
-  function request(econt_service_url, order_id, waybill_id, private_key, currency = 'BGN', s = null, i = null) {
+  // OrdersService.getTrace through admin-ajax: the server adds the private key and returns Econt's response
+  function request(order_id, waybill_id, currency = 'BGN', s = null, i = null) {
     return dwe.ajax({
-      url: econt_service_url.content + 'services/OrdersService.getTrace.json',
-      data:JSON.stringify({
-        "id": "",
-        "orderNumber": order_id,
-        "status": "",
-        "orderTime": "",
-        "cod": "",
-        "partialDelivery": "",
-        // "currency": wcSettings.currency.code,
-        "currency": currency,
-        "shipmentDescription": "",
-        "shipmentNumber": waybill_id,
-      }),
+      url: delivery_with_econt_admin_object.ajax_url,
+      data: {
+        "action": "delivery_with_econt_get_trace",
+        "security": delivery_with_econt_admin_object.security,
+        "order_id": order_id,
+        "waybill_id": waybill_id,
+        "currency": currency
+      },
       type: "POST",
       dataType: 'json',
-      contentType: 'application/json',
-      beforeSend: function ( xhr ) {
-        xhr.setRequestHeader ( "Authorization", private_key );
-      },
       success:function( e ){       
         // set local param with response data 
         // params = e
@@ -258,7 +243,8 @@ jQuery( document ).ready( function (dwe) {
       },
       // handle error (alert the error)
       error: function ( error ) {
-        alert( 'Отговор от Еконт: ' + error.responseJSON.message + "\r\nСървърен код - " + error.status + ' ( ' + error.statusText + ' ).')
+        let message = error.responseJSON && error.responseJSON.message ? error.responseJSON.message : error.responseText
+        alert( 'Отговор от Еконт: ' + message + "\r\nСървърен код - " + error.status + ' ( ' + error.statusText + ' ).')
         if ( s && i ) {
           s.css('visibility', 'visible')        
           dwe(i).removeClass('is-active')        

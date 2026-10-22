@@ -364,6 +364,54 @@ class Delivery_With_Econt_Helper
 	}
 
     /**
+     * Waybill status from Econt for the Generate/Print and refresh buttons in the admin.
+     * The request is sent from the server, so the private key does not reach the browser.
+     * Econt's response is passed through unchanged.
+     */
+    public function econt_get_trace() {
+        $waybill_id = sanitize_text_field( wp_unslash( $_POST['waybill_id'] ?? '' ) );
+
+        $data = [
+            'id' => '',
+            'orderNumber' => absint( $_POST['order_id'] ?? 0 ),
+            'status' => '',
+            'orderTime' => '',
+            'cod' => '',
+            'partialDelivery' => '',
+            'currency' => sanitize_text_field( wp_unslash( $_POST['currency'] ?? 'BGN' ) ),
+            'shipmentDescription' => '',
+            'shipmentNumber' => ctype_digit( $waybill_id ) ? (int) $waybill_id : $waybill_id,
+        ];
+
+        $curl = curl_init();
+        curl_setopt( $curl, CURLOPT_URL, $this->get_service_url() . 'services/OrdersService.getTrace.json' );
+        curl_setopt( $curl, CURLOPT_RETURNTRANSFER, true );
+        curl_setopt( $curl, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'Authorization: ' . $this->get_private_key()
+        ] );
+        curl_setopt( $curl, CURLOPT_POST, true );
+        curl_setopt( $curl, CURLOPT_POSTFIELDS, json_encode( $data ) );
+        curl_setopt( $curl, CURLOPT_TIMEOUT, 10 );
+        $response = curl_exec( $curl );
+        $http_code = (int) curl_getinfo( $curl, CURLINFO_HTTP_CODE );
+        $curl_error = curl_error( $curl );
+        curl_close( $curl );
+
+        if ( $response === false || $http_code === 0 ) {
+            wp_send_json( [ 'message' => $curl_error ], 502 );
+        }
+
+        // Econt answers errors with codes that are not standard (e.g. 517), and Apache turns those into 500.
+        // Keep a known code, send any other as 502; the message from Econt stays in the body.
+        status_header( get_status_header_desc( $http_code ) ? $http_code : 502 );
+        header( 'Content-Type: application/json; charset=' . get_option( 'blog_charset' ) );
+        echo $response;
+        // response null keeps the code set above, like wp_send_json
+        wp_die( '', '', [ 'response' => null ] );
+    }
+
+    /**
      * @param $data
      * @param string $endpoint
      * @return mixed
