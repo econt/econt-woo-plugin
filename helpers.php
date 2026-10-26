@@ -46,9 +46,6 @@ class Delivery_With_Econt_Helper
      * @return bool - false - to finish the execution
      */
 	public function sync_order( $local_order = null, $items = [], $get_new_price = false, $payment_token = "" ) {
-		error_log('sync_order');
-		error_log($local_order);
-		error_log(111);
 		if ( ! $local_order ) {
 			error_log("[Econt Sync] No local order provided");
 			return false;
