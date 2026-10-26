@@ -1,4 +1,4 @@
-Version 3.0.3 - 23.10.2026 - The shipping price is taken from Econt on the server; the TLS certificate is verified in the requests to Econt;
+Version 3.0.3 - 23.10.2026 - The shipping price is taken from Econt on the server; the TLS certificate is verified in the requests to Econt; Econt Pay is available in every currency of the store, not only in BGN; the currency of the store is used where none is given;
 Version 3.0.2 - 22.10.2026 - Admin: the waybill status for the Generate/Print and refresh buttons is requested through the WordPress server;
 Version 3.0.1 - 09.10.2025 - feature: Add bulk action for syncing Econt waybills;
 Version 3.0.0 - 02.10.2025 - Different approach to get current shipping method; Optimize js file;
