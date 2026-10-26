@@ -325,6 +325,8 @@ class Delivery_With_Econt_Helper
     /**
      * What the Econt price of the cart depends on, besides the cart: the address confirmed in the Econt form
      * (customer info id), the payment method and, for Econt Pay only, the price that the form gave.
+     * The Econt form keeps its customer info id when the customer changes the address in it, so the price that the
+     * form gave and the shipping address are kept too: when they change, the cached prices are not used.
      *
      * @param string|null $payment_method Payment method id; null takes the one in the session
      * @return array
@@ -341,6 +343,13 @@ class Delivery_With_Econt_Helper
             'customer_info_id' => sanitize_text_field( wp_unslash( $_COOKIE['econt_customer_info_id'] ?? '' ) ),
             'payment_method' => $payment_method,
             'econt_pay_price' => $payment_method === 'econt_payment' ? sanitize_text_field( wp_unslash( $_COOKIE['econt_shippment_price'] ?? '' ) ) : '',
+            'form_price' => sanitize_text_field( wp_unslash( $_COOKIE['econt_shippment_price'] ?? '' ) ),
+            'address' => WC()->customer ? implode( '|', [
+                WC()->customer->get_shipping_country(),
+                WC()->customer->get_shipping_city(),
+                WC()->customer->get_shipping_postcode(),
+                WC()->customer->get_shipping_address_1(),
+            ] ) : '',
         ];
     }
 
@@ -372,7 +381,7 @@ class Delivery_With_Econt_Helper
      */
     public function get_cart_shipping_cost( $econt_data )
     {
-        $prices = $this->get_cart_shipping_prices( $econt_data['customer_info_id'] ?? '' );
+        $prices = $this->get_cart_shipping_prices( $econt_data );
         if ( ! $prices ) return null;
 
         if ( ( $econt_data['payment_method'] ?? '' ) === 'cod' ) return $prices['price_cod'];
@@ -389,15 +398,40 @@ class Delivery_With_Econt_Helper
     }
 
     /**
+     * Asks Econt again for the prices of the cart, without the cache. Called before the order is placed: the cached
+     * prices can be for the address before the customer changed it in the Econt form.
+     * When the prices changed, the cache has the new ones and the shipping rates of the cart are calculated again.
+     *
+     * @param array $econt_data From get_econt_shipping_data()
+     * @return bool|null true if the prices changed, false if not, null if Econt gives no price
+     */
+    public function cart_shipping_prices_changed( $econt_data )
+    {
+        $cached = $this->get_cart_shipping_prices( $econt_data );
+        $fresh = $this->get_cart_shipping_prices( $econt_data, true );
+        if ( $fresh === null ) return null;
+        if ( $cached === $fresh ) return false;
+
+        foreach ( array_keys( WC()->cart->get_shipping_packages() ) as $package_key ) {
+            WC()->session->set( 'shipping_for_package_' . $package_key, null );
+        }
+
+        return true;
+    }
+
+    /**
      * Prices of the cart without and with cash on delivery from OrdersService.getPrice. Without an order number
      * Econt calculates them on a temporary order and saves nothing. They are kept in the WC session per customer
-     * info id, cart total, weight and currency, so Econt is not asked on every calculation of the cart.
+     * info id, price from the Econt form, shipping address, cart total, weight and currency, so Econt is not asked
+     * on every calculation of the cart.
      *
-     * @param string $customer_info_id
+     * @param array $econt_data From get_econt_shipping_data()
+     * @param bool $fresh Ask Econt even if the prices are in the cache
      * @return array|null ['price' => float, 'price_cod' => float], or null if Econt does not answer or does not know the id
      */
-    private function get_cart_shipping_prices( $customer_info_id )
+    private function get_cart_shipping_prices( $econt_data, $fresh = false )
     {
+        $customer_info_id = $econt_data['customer_info_id'] ?? '';
         if ( $customer_info_id === '' || ! WC()->cart || ! WC()->session ) return null;
 
         // The same total and weight that get_order_info() gives to the Econt form
@@ -405,9 +439,9 @@ class Delivery_With_Econt_Helper
         $weight = round( (float) WC()->cart->get_cart_contents_weight(), 3 );
         $currency = get_woocommerce_currency();
 
-        $key = md5( implode( '|', [ $customer_info_id, $total, $weight, $currency ] ) );
+        $key = md5( implode( '|', [ $customer_info_id, $econt_data['form_price'] ?? '', $econt_data['address'] ?? '', $total, $weight, $currency ] ) );
         $cached = WC()->session->get( 'econt_delivery_server_prices' );
-        if ( is_array( $cached ) && ( $cached['key'] ?? '' ) === $key ) return $cached['prices'];
+        if ( ! $fresh && is_array( $cached ) && ( $cached['key'] ?? '' ) === $key ) return $cached['prices'];
 
         $price = $this->get_econt_price( $customer_info_id, $total, $weight, $currency, false );
         if ( $price === null ) return null;
