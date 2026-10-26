@@ -86,8 +86,8 @@ msgstr ""
 
 #: bootstrap.php
 msgid ""
-"The Econt shipping price is different for the selected payment method. Please "
-"review the updated total and place your order again."
+"The Econt shipping price has changed. Please review the updated total and "
+"place your order again."
 msgstr ""
-"Цената на доставката с Еконт е различна за избрания начин на плащане. Моля, "
-"прегледайте новата сума и направете поръчката отново."
+"Цената на доставката с Еконт се промени. Моля, прегледайте новата сума и "
+"направете поръчката отново."
