@@ -46,9 +46,6 @@ class Delivery_With_Econt_Helper
      * @return bool - false - to finish the execution
      */
 	public function sync_order( $local_order = null, $items = [], $get_new_price = false, $payment_token = "" ) {
-		error_log('sync_order');
-		error_log($local_order);
-		error_log(111);
 		if ( ! $local_order ) {
 			error_log("[Econt Sync] No local order provided");
 			return false;
@@ -168,6 +165,7 @@ class Delivery_With_Econt_Helper
 		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, true);
 		curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 2);
+		curl_setopt($curl, CURLOPT_CAINFO, ABSPATH . WPINC . '/certificates/ca-bundle.crt');
 		curl_setopt($curl, CURLOPT_HTTPHEADER, [
 			'Content-Type: application/json',
 			'Authorization: ' . $this->get_private_key()
@@ -199,6 +197,7 @@ class Delivery_With_Econt_Helper
 		if ( $get_new_price ) {
 			$curl = curl_init();
 			curl_setopt($curl, CURLOPT_URL, $this->get_service_url() . 'services/OrdersService.getPrice.json');
+			curl_setopt($curl, CURLOPT_CAINFO, ABSPATH . WPINC . '/certificates/ca-bundle.crt');
 			curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
 			curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($data));
 			curl_setopt($curl, CURLOPT_HTTPHEADER, [
@@ -288,6 +287,7 @@ class Delivery_With_Econt_Helper
         curl_setopt( $curl, CURLOPT_RETURNTRANSFER, true );
         curl_setopt( $curl, CURLOPT_SSL_VERIFYPEER, true );
         curl_setopt( $curl, CURLOPT_SSL_VERIFYHOST, 2 );
+        curl_setopt( $curl, CURLOPT_CAINFO, ABSPATH . WPINC . '/certificates/ca-bundle.crt' );
         curl_setopt( $curl, CURLOPT_HTTPHEADER, [
             'Content-Type: application/json',
             "Authorization: " . $secret
@@ -480,6 +480,7 @@ class Delivery_With_Econt_Helper
         curl_setopt( $curl, CURLOPT_RETURNTRANSFER, true );
         curl_setopt( $curl, CURLOPT_SSL_VERIFYPEER, true );
         curl_setopt( $curl, CURLOPT_SSL_VERIFYHOST, 2 );
+        curl_setopt( $curl, CURLOPT_CAINFO, ABSPATH . WPINC . '/certificates/ca-bundle.crt' );
         curl_setopt( $curl, CURLOPT_HTTPHEADER, [
             'Content-Type: application/json',
             'Authorization: ' . $this->get_private_key()
@@ -574,6 +575,8 @@ class Delivery_With_Econt_Helper
         curl_setopt( $curl, CURLOPT_POST, true );
         curl_setopt( $curl, CURLOPT_POSTFIELDS, json_encode( $data ) );
         curl_setopt( $curl, CURLOPT_TIMEOUT, 10 );
+        // The certificate of Econt is checked against the CA file that comes with WordPress, not the one of PHP or the system
+        curl_setopt( $curl, CURLOPT_CAINFO, ABSPATH . WPINC . '/certificates/ca-bundle.crt' );
         $response = curl_exec( $curl );
         $http_code = (int) curl_getinfo( $curl, CURLINFO_HTTP_CODE );
         $curl_error = curl_error( $curl );
@@ -606,6 +609,7 @@ class Delivery_With_Econt_Helper
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, true);
         curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 2);
+        curl_setopt($curl, CURLOPT_CAINFO, ABSPATH . WPINC . '/certificates/ca-bundle.crt');
         curl_setopt($curl, CURLOPT_HTTPHEADER, [
             'Content-Type: application/json',
             'Authorization: ' . DWEH()->get_private_key()
@@ -631,6 +635,7 @@ class Delivery_With_Econt_Helper
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, true);
         curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 2);
+        curl_setopt($curl, CURLOPT_CAINFO, ABSPATH . WPINC . '/certificates/ca-bundle.crt');
         curl_setopt($curl, CURLOPT_HTTPHEADER, [
             'Content-Type: application/json',
             "Authorization: {$privateKey}"
