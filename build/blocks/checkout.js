@@ -1267,7 +1267,6 @@ const EcontShippingContent = () => {
   }
   return (0,react__WEBPACK_IMPORTED_MODULE_0__.createElement)(_EcontDelivery__WEBPACK_IMPORTED_MODULE_4__["default"], null);
 };
-console.log('Registering Econt delivery block plugin');
 (0,_wordpress_plugins__WEBPACK_IMPORTED_MODULE_2__.registerPlugin)('econt-delivery-block', {
   render: EcontShippingContent,
   scope: 'woocommerce-checkout'

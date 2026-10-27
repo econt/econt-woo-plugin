@@ -28,8 +28,6 @@ const EcontShippingContent = () => {
     return <EcontDelivery />;
 };
 
-console.log('Registering Econt delivery block plugin');
-
 registerPlugin('econt-delivery-block', {
     render: EcontShippingContent,
     scope: 'woocommerce-checkout'
