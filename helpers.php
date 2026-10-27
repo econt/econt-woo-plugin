@@ -571,6 +571,8 @@ class Delivery_With_Econt_Helper
         curl_setopt( $curl, CURLOPT_POST, true );
         curl_setopt( $curl, CURLOPT_POSTFIELDS, json_encode( $data ) );
         curl_setopt( $curl, CURLOPT_TIMEOUT, 10 );
+        // The certificate of Econt is checked against the CA file that comes with WordPress, not the one of PHP or the system
+        curl_setopt( $curl, CURLOPT_CAINFO, ABSPATH . WPINC . '/certificates/ca-bundle.crt' );
         $response = curl_exec( $curl );
         $http_code = (int) curl_getinfo( $curl, CURLINFO_HTTP_CODE );
         $curl_error = curl_error( $curl );
