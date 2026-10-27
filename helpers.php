@@ -560,7 +560,7 @@ class Delivery_With_Econt_Helper
             'orderTime' => '',
             'cod' => '',
             'partialDelivery' => '',
-            'currency' => sanitize_text_field( wp_unslash( $_POST['currency'] ?? 'BGN' ) ),
+            'currency' => sanitize_text_field( wp_unslash( $_POST['currency'] ?? '' ) ) ?: get_woocommerce_currency(),
             'shipmentDescription' => '',
             'shipmentNumber' => ctype_digit( $waybill_id ) ? (int) $waybill_id : $waybill_id,
         ];

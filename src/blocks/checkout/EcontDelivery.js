@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 
+// Currency of the store (WooCommerce settings on the page), for when the cart does not give one
+const getStoreCurrency = () => window.wcSettings?.currency?.code || ""
+
 const EcontDelivery = () => {
     // Declare jQuery and wp variables
     const jQuery = window.jQuery
@@ -355,7 +358,7 @@ const EcontDelivery = () => {
                     return {
                         total: Number.parseFloat(total) / 100,
                         weight: finalWeight,
-                        currency: cartData.totals?.currency_code || "BGN",
+                        currency: cartData.totals?.currency_code || getStoreCurrency(),
                     }
                 }
             }
@@ -381,13 +384,13 @@ const EcontDelivery = () => {
                         setCartWeight(weight)
                     }
 
-                    return { total, weight, currency: "BGN" }
+                    return { total, weight, currency: getStoreCurrency() }
                 }
             }
 
-            return { total: 0, weight: 1, currency: "BGN" }
+            return { total: 0, weight: 1, currency: getStoreCurrency() }
         } catch (error) {
-            return { total: 0, weight: 1, currency: "BGN" }
+            return { total: 0, weight: 1, currency: getStoreCurrency() }
         }
     }
 

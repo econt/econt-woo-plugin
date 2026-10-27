@@ -96,7 +96,7 @@ add_action( 'woocommerce_shipping_init', 'econt_shipping_method_init' );
 function add_econt_payment_gateway($gateways) {
     if ((
             defined('WP_ADMIN') && WP_ADMIN)
-        ||  (!WC()->session || @WC()->session->get('chosen_shipping_methods')[0] == 'delivery_with_econt') && get_woocommerce_currency() === "BGN"
+        ||  (!WC()->session || @WC()->session->get('chosen_shipping_methods')[0] == 'delivery_with_econt')
     ) {
         $gateways['econt_payment'] = Delivery_With_Econt_Payment::class;
     }
