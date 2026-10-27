@@ -89,6 +89,31 @@ function econt_shipping_method_init()
 add_action( 'woocommerce_shipping_init', 'econt_shipping_method_init' );
 
 /**
+ * Keep Econt selected when the available shipping rates change.
+ *
+ * When the Econt form fills in the customer address, other carriers may return
+ * a different set of rates for it. WooCommerce then resets the chosen method to
+ * the first rate in the list, so the customer loses the Econt selection.
+ *
+ * @param string $default       Rate WooCommerce is about to select
+ * @param array  $rates         Available rates for the package
+ * @param string $chosen_method Previously chosen rate
+ *
+ * @return string
+ */
+function delivery_with_econt_keep_chosen_method($default, $rates, $chosen_method) {
+	$econt = Delivery_With_Econt_Options::get_plugin_name();
+
+	if ($chosen_method === $econt && isset($rates[$econt])) {
+		return $econt;
+	}
+
+	return $default;
+}
+
+add_filter('woocommerce_shipping_chosen_method', 'delivery_with_econt_keep_chosen_method', 10, 3);
+
+/**
  * Adds Econt as payment method
  * @param $gateways
  * @return array
