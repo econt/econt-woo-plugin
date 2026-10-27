@@ -271,11 +271,9 @@ function delivery_with_econt_generate_order_service($order_id = null) {
 		$order_id = intval($_POST['order_id']);
 	}
 	$order = wc_get_order($order_id);
-error_log($order);
 	if ($order && DWEH()->order_contains_only_virtual_products($order)) {
 		return;
 	}
-error_log('test');
 	DWEH()->sync_order($order_id);
 }
 add_action( 'woocommerce_checkout_order_processed', 'delivery_with_econt_generate_order_service',  1, 1  );
