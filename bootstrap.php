@@ -41,20 +41,13 @@ function DWEH() { // phpcs:ignore WordPress.NamingConventions.ValidFunctionName.
 	return Delivery_With_Econt_Helper::instance();
 }
 
-function add_econt_service_url_and_key_meta_tag() {
-    $service_url ='<meta name="econt-service-url" content="' . DWEH()->get_service_url() . '" >';
-    echo $service_url;
-
-    $secret_key ='<meta name="econt-private-key" content="' . DWEH()->get_private_key( true ) . '" >';
-    echo $secret_key;
-}
-add_action( 'admin_head', 'add_econt_service_url_and_key_meta_tag' );
-
 function add_econt_service_url_meta_tag() {
     $service_url ='<meta name="econt-service-url" content="' . DWEH()->get_service_url() . '" >';
     echo $service_url;
 }
 add_action( 'wp_head', 'add_econt_service_url_meta_tag' );
+// The private key is not printed in the page: the admin JS asks the server (delivery_with_econt_get_trace)
+add_action( 'admin_head', 'add_econt_service_url_meta_tag' );
 
 add_action('update_option_delivery_with_econt_settings', function( $old_value, $new_value, $option_name ) {
     $status = DWEH()->check_econt_configuration( $new_value );
@@ -523,6 +516,19 @@ function delivery_with_econt_get_order_details()
 }
 
 add_action( 'wp_ajax_delivery_with_econt_get_order_details', 'delivery_with_econt_get_order_details' );
+
+function delivery_with_econt_get_trace()
+{
+    check_ajax_referer( 'woocommerce-preview-order', 'security' );
+
+    if ( ! current_user_can( 'edit_shop_orders' ) ) {
+      wp_die( -1 );
+    }
+
+    DWEH()->econt_get_trace();
+}
+
+add_action( 'wp_ajax_delivery_with_econt_get_trace', 'delivery_with_econt_get_trace' );
 
 // Sync the Econt services with local values 
 function delivery_with_econt_sync_order( $order_id ) 

@@ -182,7 +182,8 @@ class Delivery_With_Econt_Admin
 	public static function render_modal_scripts()
 	{
 		wp_enqueue_style( 'delivery_with_econt_admin', plugin_dir_url(__FILE__) . '../../public/css/admin/delivery-with-econt-admin.css', [], false );
-		wp_enqueue_script( 'delivery_with_econt_admin', plugin_dir_url(__FILE__) . '../../public/js/admin/delivery-with-econt-admin.js', ['jquery', 'underscore', 'backbone'], false, true );
+		// Version by file time, so a cached copy of the old script is not used after an update
+		wp_enqueue_script( 'delivery_with_econt_admin', plugin_dir_url(__FILE__) . '../../public/js/admin/delivery-with-econt-admin.js', ['jquery', 'underscore', 'backbone'], filemtime( ECONT_PLUGIN_DIR . 'public/js/admin/delivery-with-econt-admin.js' ), true );
 		wp_localize_script( 'delivery_with_econt_admin', 'delivery_with_econt_admin_object', array('ajax_url' => admin_url('admin-ajax.php'), 'security'  => wp_create_nonce( 'woocommerce-preview-order' )));
 	}
 
