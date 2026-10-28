@@ -224,7 +224,7 @@ jQuery( document ).ready( function (dwe) {
     }
 
   // OrdersService.getTrace through admin-ajax: the server adds the private key and returns Econt's response
-  function request(order_id, waybill_id, currency = 'BGN', s = null, i = null) {
+  function request(order_id, waybill_id, currency = '', s = null, i = null) {
     return dwe.ajax({
       url: delivery_with_econt_admin_object.ajax_url,
       data: {

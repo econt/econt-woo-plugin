@@ -54,11 +54,10 @@ class Delivery_With_Econt_Shipping extends WC_Shipping_Method
     
     public function calculate_shipping( $package = [] )
     {
-        $cost = 0;
-
-        if ( array_key_exists('econt_shippment_price', $_COOKIE ) ) {
-            $cost = $_COOKIE["econt_shippment_price"];
-        }
+        // The price comes from the Econt server, not from the cookie of the Econt form. Until the customer confirms
+        // the form, or if Econt gives no price, the cost is 0 and checkout does not accept the order.
+        $econt_data = $package['econt_delivery'] ?? DWEH()->get_econt_shipping_data();
+        $cost = DWEH()->get_cart_shipping_cost( $econt_data ) ?? 0;
 
         $rate = array(
             'id' => $this->id,

@@ -12,7 +12,7 @@
  * Plugin Name:       Econt Delivery
  * Plugin URI:        https://econt.com/developers/
  * Description:       Econt Shipping Module
- * Version:           3.0.2
+ * Version:           3.0.3
  * Author:            Econt Express LTD.
  * Author URI:        https://econt.com/developers/
  * License:           GPL-2.0+
@@ -133,10 +133,6 @@ function econt_plugin_after_update($upgrader_object, $options) {
 
 					$dweh = DWEH();
 
-					error_log('update');
-					error_log(print_r($dweh->get_service_url(), true));
-					error_log(print_r(get_plugin_data(WP_PLUGIN_DIR . '/' . $plugin_file)['Version'], true));
-
 					$dweh::sendLog('update', get_plugin_data(WP_PLUGIN_DIR . '/' . $plugin_file)['Version'], $dweh->get_service_url(), $dweh->get_private_key());
 
 					break;
@@ -163,10 +159,6 @@ function econt_plugin_force_send_update_log() {
 
 	// Only proceed if not already logged for this version
 	if (!get_transient($transient_key) && $current_version === $target_version) {
-
-		error_log('force update');
-		error_log(print_r($dweh->get_service_url(), true));
-		error_log(print_r($current_version, true));
 
 		$dweh::sendLog(
 			'update',

@@ -89,6 +89,31 @@ function econt_shipping_method_init()
 add_action( 'woocommerce_shipping_init', 'econt_shipping_method_init' );
 
 /**
+ * Keep Econt selected when the available shipping rates change.
+ *
+ * When the Econt form fills in the customer address, other carriers may return
+ * a different set of rates for it. WooCommerce then resets the chosen method to
+ * the first rate in the list, so the customer loses the Econt selection.
+ *
+ * @param string $default       Rate WooCommerce is about to select
+ * @param array  $rates         Available rates for the package
+ * @param string $chosen_method Previously chosen rate
+ *
+ * @return string
+ */
+function delivery_with_econt_keep_chosen_method($default, $rates, $chosen_method) {
+	$econt = Delivery_With_Econt_Options::get_plugin_name();
+
+	if ($chosen_method === $econt && isset($rates[$econt])) {
+		return $econt;
+	}
+
+	return $default;
+}
+
+add_filter('woocommerce_shipping_chosen_method', 'delivery_with_econt_keep_chosen_method', 10, 3);
+
+/**
  * Adds Econt as payment method
  * @param $gateways
  * @return array
@@ -96,7 +121,7 @@ add_action( 'woocommerce_shipping_init', 'econt_shipping_method_init' );
 function add_econt_payment_gateway($gateways) {
     if ((
             defined('WP_ADMIN') && WP_ADMIN)
-        ||  (!WC()->session || @WC()->session->get('chosen_shipping_methods')[0] == 'delivery_with_econt') && get_woocommerce_currency() === "BGN"
+        ||  (!WC()->session || @WC()->session->get('chosen_shipping_methods')[0] == 'delivery_with_econt')
     ) {
         $gateways['econt_payment'] = Delivery_With_Econt_Payment::class;
     }
@@ -246,11 +271,9 @@ function delivery_with_econt_generate_order_service($order_id = null) {
 		$order_id = intval($_POST['order_id']);
 	}
 	$order = wc_get_order($order_id);
-error_log($order);
 	if ($order && DWEH()->order_contains_only_virtual_products($order)) {
 		return;
 	}
-error_log('test');
 	DWEH()->sync_order($order_id);
 }
 add_action( 'woocommerce_checkout_order_processed', 'delivery_with_econt_generate_order_service',  1, 1  );
@@ -587,7 +610,9 @@ function action_woocommerce_checkout_process($wccs_custom_checkout_field_pro_pro
 		return;
 	}
 
-	if(!isset($_COOKIE['econt_customer_info_id'])) {
+	// The shipping price is taken from Econt; without it the order would be saved with shipping 0
+	$payment_method = isset($_POST['payment_method']) ? wc_clean(wp_unslash($_POST['payment_method'])) : null;
+	if(!isset($_COOKIE['econt_customer_info_id']) || DWEH()->get_cart_shipping_cost(DWEH()->get_econt_shipping_data($payment_method)) === null) {
 		function my_woocommerce_add_error($error) {
 			$error = __("You can't submit order, if shipping price is not calculated properly!", 'deliver-with-econt');
 			return $error;
@@ -597,9 +622,88 @@ function action_woocommerce_checkout_process($wccs_custom_checkout_field_pro_pro
 
 		throw new Exception(__("You can't submit order, if shipping price is not calculated properly!", 'deliver-with-econt'));
 	}
+
+	// The Econt form keeps its customer info id when the customer changes the address in it, so before the order is
+	// placed the price is asked again without the cache. A changed price is shown to the customer first.
+	$changed = DWEH()->cart_shipping_prices_changed(DWEH()->get_econt_shipping_data($payment_method));
+	if ($changed !== false) {
+		WC()->session->set('refresh_totals', true);
+		throw new Exception($changed === null
+			? __("You can't submit order, if shipping price is not calculated properly!", 'deliver-with-econt')
+			: __('The Econt shipping price has changed. Please review the updated total and place your order again.', 'deliver-with-econt'));
+	}
 };
 
 add_action('woocommerce_checkout_process', 'action_woocommerce_checkout_process', 10, 1);
+
+/**
+ * Block checkout (Store API): the same check as action_woocommerce_checkout_process, which WooCommerce runs only
+ * for the classic checkout.
+ *
+ * @param WC_Order $order
+ * @param WP_REST_Request $request
+ * @throws \Automattic\WooCommerce\StoreApi\Exceptions\RouteException
+ */
+function delivery_with_econt_store_api_checkout_process($order, $request) {
+	// Only when the order is placed; PATCH requests of the checkout form go through here too when a draft order exists
+	if ('POST' !== $request->get_method()) return;
+	if (!$order->has_shipping_method(Delivery_With_Econt_Options::get_plugin_name())) return;
+	if (DWEH()->order_contains_only_virtual_products($order)) return;
+
+	$payment_method = !empty($request['payment_method']) ? wc_clean($request['payment_method']) : null;
+	$econt_data = DWEH()->get_econt_shipping_data($payment_method);
+
+	// The Econt form keeps its customer info id when the customer changes the address in it, so before the order is
+	// placed the price is asked again without the cache. A changed price is shown to the customer first.
+	$changed = DWEH()->cart_shipping_prices_changed($econt_data);
+	if ($changed === true) {
+		throw new \Automattic\WooCommerce\StoreApi\Exceptions\RouteException(
+			'delivery_with_econt_shipping_price_changed',
+			__('The Econt shipping price has changed. Please review the updated total and place your order again.', 'deliver-with-econt'),
+			409
+		);
+	}
+
+	$cost = DWEH()->get_cart_shipping_cost($econt_data);
+	if ($cost === null) {
+		throw new \Automattic\WooCommerce\StoreApi\Exceptions\RouteException(
+			'delivery_with_econt_shipping_price',
+			__("You can't submit order, if shipping price is not calculated properly!", 'deliver-with-econt'),
+			400
+		);
+	}
+
+	// The cart was calculated before WooCommerce set the payment method of the request. An order with the price
+	// for another payment method is not placed; WooCommerce has already put the method in the session, so the
+	// next calculation of the cart gives the right price.
+	foreach ($order->get_shipping_methods() as $shipping_item) {
+		if ($shipping_item->get_method_id() !== Delivery_With_Econt_Options::get_plugin_name()) continue;
+		if (abs((float) $shipping_item->get_total() - $cost) < 0.005) continue;
+
+		throw new \Automattic\WooCommerce\StoreApi\Exceptions\RouteException(
+			'delivery_with_econt_shipping_price_changed',
+			__('The Econt shipping price has changed. Please review the updated total and place your order again.', 'deliver-with-econt'),
+			409
+		);
+	}
+}
+
+add_action('woocommerce_store_api_checkout_update_order_from_request', 'delivery_with_econt_store_api_checkout_process', 10, 2);
+
+/**
+ * The Econt price depends on the address from the Econt form and on the payment method, which are not in the
+ * shipping package. With them in the package WooCommerce calculates the shipping again when one of them changes.
+ */
+function delivery_with_econt_shipping_packages($packages) {
+	$econt_data = DWEH()->get_econt_shipping_data();
+	foreach ($packages as $key => $package) {
+		$packages[$key]['econt_delivery'] = $econt_data;
+	}
+
+	return $packages;
+}
+
+add_filter('woocommerce_cart_shipping_packages', 'delivery_with_econt_shipping_packages');
 
 /**
  * @param $id_order

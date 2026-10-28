@@ -46,9 +46,6 @@ class Delivery_With_Econt_Helper
      * @return bool - false - to finish the execution
      */
 	public function sync_order( $local_order = null, $items = [], $get_new_price = false, $payment_token = "" ) {
-		error_log('sync_order');
-		error_log($local_order);
-		error_log(111);
 		if ( ! $local_order ) {
 			error_log("[Econt Sync] No local order provided");
 			return false;
@@ -166,8 +163,9 @@ class Delivery_With_Econt_Helper
 		$curl = curl_init();
 		curl_setopt($curl, CURLOPT_URL, $this->get_service_url() . 'services/OrdersService.updateOrder.json');
 		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-		curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
-		curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
+		curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, true);
+		curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 2);
+		curl_setopt($curl, CURLOPT_CAINFO, ABSPATH . WPINC . '/certificates/ca-bundle.crt');
 		curl_setopt($curl, CURLOPT_HTTPHEADER, [
 			'Content-Type: application/json',
 			'Authorization: ' . $this->get_private_key()
@@ -199,6 +197,7 @@ class Delivery_With_Econt_Helper
 		if ( $get_new_price ) {
 			$curl = curl_init();
 			curl_setopt($curl, CURLOPT_URL, $this->get_service_url() . 'services/OrdersService.getPrice.json');
+			curl_setopt($curl, CURLOPT_CAINFO, ABSPATH . WPINC . '/certificates/ca-bundle.crt');
 			curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
 			curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($data));
 			curl_setopt($curl, CURLOPT_HTTPHEADER, [
@@ -286,8 +285,9 @@ class Delivery_With_Econt_Helper
         $curl = curl_init();
         curl_setopt( $curl, CURLOPT_URL, $endpoint . "services/OrdersService.getTrace.json" );
         curl_setopt( $curl, CURLOPT_RETURNTRANSFER, true );
-        curl_setopt( $curl, CURLOPT_SSL_VERIFYPEER, false );
-        curl_setopt( $curl, CURLOPT_SSL_VERIFYHOST, false );
+        curl_setopt( $curl, CURLOPT_SSL_VERIFYPEER, true );
+        curl_setopt( $curl, CURLOPT_SSL_VERIFYHOST, 2 );
+        curl_setopt( $curl, CURLOPT_CAINFO, ABSPATH . WPINC . '/certificates/ca-bundle.crt' );
         curl_setopt( $curl, CURLOPT_HTTPHEADER, [
             'Content-Type: application/json',
             "Authorization: " . $secret
@@ -298,6 +298,7 @@ class Delivery_With_Econt_Helper
         ) ) );
         curl_setopt( $curl, CURLOPT_TIMEOUT, 6 );
         $res = curl_exec( $curl );
+        if ( $res === false ) error_log( '[Econt] Settings check: ' . curl_error( $curl ) );
         $response = json_decode( $res, true );
 
         curl_close( $curl );
@@ -319,6 +320,187 @@ class Delivery_With_Econt_Helper
         }
 
         return $price;
+    }
+
+    /**
+     * What the Econt price of the cart depends on, besides the cart: the address confirmed in the Econt form
+     * (customer info id), the payment method and, for Econt Pay only, the price that the form gave.
+     * The Econt form keeps its customer info id when the customer changes the address in it, so the price that the
+     * form gave and the shipping address are kept too: when they change, the cached prices are not used.
+     *
+     * @param string|null $payment_method Payment method id; null takes the one in the session
+     * @return array
+     */
+    public function get_econt_shipping_data( $payment_method = null )
+    {
+        if ( $payment_method === null ) {
+            $payment_method = WC()->session ? (string) WC()->session->get( 'chosen_payment_method' ) : '';
+            // Until the customer picks one, the checkout shows the first available payment method as chosen
+            if ( $payment_method === '' ) $payment_method = $this->get_default_payment_method();
+        }
+
+        return [
+            'customer_info_id' => sanitize_text_field( wp_unslash( $_COOKIE['econt_customer_info_id'] ?? '' ) ),
+            'payment_method' => $payment_method,
+            'econt_pay_price' => $payment_method === 'econt_payment' ? sanitize_text_field( wp_unslash( $_COOKIE['econt_shippment_price'] ?? '' ) ) : '',
+            'form_price' => sanitize_text_field( wp_unslash( $_COOKIE['econt_shippment_price'] ?? '' ) ),
+            'address' => WC()->customer ? implode( '|', [
+                WC()->customer->get_shipping_country(),
+                WC()->customer->get_shipping_city(),
+                WC()->customer->get_shipping_postcode(),
+                WC()->customer->get_shipping_address_1(),
+            ] ) : '',
+        ];
+    }
+
+    /**
+     * The first available payment method, which the checkout shows as chosen while the session has none.
+     * The gateways may ask for the shipping of the cart while they are loaded, hence the guard.
+     *
+     * @return string
+     */
+    private function get_default_payment_method()
+    {
+        static $loading = false;
+        if ( $loading || ! WC()->payment_gateways() ) return '';
+
+        $loading = true;
+        $gateways = WC()->payment_gateways()->get_available_payment_gateways();
+        $loading = false;
+
+        return (string) ( array_key_first( $gateways ) ?? '' );
+    }
+
+    /**
+     * Econt shipping cost of the cart, with the prices from the Econt server (OrdersService.getPrice).
+     * Econt Pay has no getPrice, so its price from the Econt form is kept between the prices without and with
+     * cash on delivery.
+     *
+     * @param array $econt_data From get_econt_shipping_data()
+     * @return float|null null without a confirmed Econt form or if Econt does not give a price
+     */
+    public function get_cart_shipping_cost( $econt_data )
+    {
+        $prices = $this->get_cart_shipping_prices( $econt_data );
+        if ( ! $prices ) return null;
+
+        if ( ( $econt_data['payment_method'] ?? '' ) === 'cod' ) return $prices['price_cod'];
+
+        if ( ( $econt_data['payment_method'] ?? '' ) === 'econt_payment' ) {
+            $min = min( $prices['price'], $prices['price_cod'] );
+            $max = max( $prices['price'], $prices['price_cod'] );
+            $form_price = is_numeric( $econt_data['econt_pay_price'] ?? '' ) ? round( (float) $econt_data['econt_pay_price'], 2 ) : $max;
+
+            return min( max( $form_price, $min ), $max );
+        }
+
+        return $prices['price'];
+    }
+
+    /**
+     * Asks Econt again for the prices of the cart, without the cache. Called before the order is placed: the cached
+     * prices can be for the address before the customer changed it in the Econt form.
+     * When the prices changed, the cache has the new ones and the shipping rates of the cart are calculated again.
+     *
+     * @param array $econt_data From get_econt_shipping_data()
+     * @return bool|null true if the prices changed, false if not, null if Econt gives no price
+     */
+    public function cart_shipping_prices_changed( $econt_data )
+    {
+        $cached = $this->get_cart_shipping_prices( $econt_data );
+        $fresh = $this->get_cart_shipping_prices( $econt_data, true );
+        if ( $fresh === null ) return null;
+        if ( $cached === $fresh ) return false;
+
+        foreach ( array_keys( WC()->cart->get_shipping_packages() ) as $package_key ) {
+            WC()->session->set( 'shipping_for_package_' . $package_key, null );
+        }
+
+        return true;
+    }
+
+    /**
+     * Prices of the cart without and with cash on delivery from OrdersService.getPrice. Without an order number
+     * Econt calculates them on a temporary order and saves nothing. They are kept in the WC session per customer
+     * info id, price from the Econt form, shipping address, cart total, weight and currency, so Econt is not asked
+     * on every calculation of the cart.
+     *
+     * @param array $econt_data From get_econt_shipping_data()
+     * @param bool $fresh Ask Econt even if the prices are in the cache
+     * @return array|null ['price' => float, 'price_cod' => float], or null if Econt does not answer or does not know the id
+     */
+    private function get_cart_shipping_prices( $econt_data, $fresh = false )
+    {
+        $customer_info_id = $econt_data['customer_info_id'] ?? '';
+        if ( $customer_info_id === '' || ! WC()->cart || ! WC()->session ) return null;
+
+        // The same total and weight that get_order_info() gives to the Econt form
+        $total = round( (float) $this->econt_calculate_cart_price( WC()->cart->get_cart() ), 2 );
+        $weight = round( (float) WC()->cart->get_cart_contents_weight(), 3 );
+        $currency = get_woocommerce_currency();
+
+        $key = md5( implode( '|', [ $customer_info_id, $econt_data['form_price'] ?? '', $econt_data['address'] ?? '', $total, $weight, $currency ] ) );
+        $cached = WC()->session->get( 'econt_delivery_server_prices' );
+        if ( ! $fresh && is_array( $cached ) && ( $cached['key'] ?? '' ) === $key ) return $cached['prices'];
+
+        $price = $this->get_econt_price( $customer_info_id, $total, $weight, $currency, false );
+        if ( $price === null ) return null;
+
+        // Like the Econt form: an order without a total has no cash on delivery
+        $price_cod = $total > 0 ? $this->get_econt_price( $customer_info_id, $total, $weight, $currency, true ) : $price;
+        if ( $price_cod === null ) return null;
+
+        $prices = [ 'price' => $price, 'price_cod' => $price_cod ];
+        WC()->session->set( 'econt_delivery_server_prices', [ 'key' => $key, 'prices' => $prices ] );
+
+        return $prices;
+    }
+
+    /**
+     * Shipping price (receiverDueAmount) from OrdersService.getPrice
+     *
+     * @return float|null null on a connection error or an error from Econt
+     */
+    private function get_econt_price( $customer_info_id, $total, $weight, $currency, $cod )
+    {
+        $request = [
+            'cod' => (bool) $cod,
+            'currency' => $currency,
+            'customerInfo' => [ 'id' => $customer_info_id ],
+            'items' => [ [
+                'name' => 'Order',
+                'count' => 1,
+                'totalPrice' => $total,
+                'totalWeight' => $weight
+            ] ]
+        ];
+
+        $curl = curl_init();
+        curl_setopt( $curl, CURLOPT_URL, $this->get_service_url() . 'services/OrdersService.getPrice.json' );
+        curl_setopt( $curl, CURLOPT_RETURNTRANSFER, true );
+        curl_setopt( $curl, CURLOPT_SSL_VERIFYPEER, true );
+        curl_setopt( $curl, CURLOPT_SSL_VERIFYHOST, 2 );
+        curl_setopt( $curl, CURLOPT_CAINFO, ABSPATH . WPINC . '/certificates/ca-bundle.crt' );
+        curl_setopt( $curl, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'Authorization: ' . $this->get_private_key()
+        ] );
+        curl_setopt( $curl, CURLOPT_POST, true );
+        curl_setopt( $curl, CURLOPT_POSTFIELDS, json_encode( $request ) );
+        curl_setopt( $curl, CURLOPT_TIMEOUT, 6 );
+        $response = curl_exec( $curl );
+        $http_code = (int) curl_getinfo( $curl, CURLINFO_HTTP_CODE );
+        $curl_error = curl_error( $curl );
+        curl_close( $curl );
+
+        $result = is_string( $response ) ? json_decode( $response, true ) : null;
+
+        if ( $http_code !== 200 || ! isset( $result['receiverDueAmount'] ) || ! is_numeric( $result['receiverDueAmount'] ) ) {
+            error_log( sprintf( '[Econt] getPrice failed [%d] %s %s', $http_code, $curl_error, $result['message'] ?? '' ) );
+            return null;
+        }
+
+        return round( (float) $result['receiverDueAmount'], 2 );
     }
 
     /**
@@ -378,7 +560,7 @@ class Delivery_With_Econt_Helper
             'orderTime' => '',
             'cod' => '',
             'partialDelivery' => '',
-            'currency' => sanitize_text_field( wp_unslash( $_POST['currency'] ?? 'BGN' ) ),
+            'currency' => sanitize_text_field( wp_unslash( $_POST['currency'] ?? '' ) ) ?: get_woocommerce_currency(),
             'shipmentDescription' => '',
             'shipmentNumber' => ctype_digit( $waybill_id ) ? (int) $waybill_id : $waybill_id,
         ];
@@ -425,8 +607,9 @@ class Delivery_With_Econt_Helper
         $curl = curl_init();
         curl_setopt($curl, CURLOPT_URL, $endpoint);
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 2);
+        curl_setopt($curl, CURLOPT_CAINFO, ABSPATH . WPINC . '/certificates/ca-bundle.crt');
         curl_setopt($curl, CURLOPT_HTTPHEADER, [
             'Content-Type: application/json',
             'Authorization: ' . DWEH()->get_private_key()
@@ -436,6 +619,7 @@ class Delivery_With_Econt_Helper
         curl_setopt($curl, CURLOPT_TIMEOUT, 10);
         // Изпращане на заявката
         $response = curl_exec($curl);
+        if ($response === false) error_log('[Econt] ' . $endpoint . ': ' . curl_error($curl));
 
         return $response;
     }
@@ -449,8 +633,9 @@ class Delivery_With_Econt_Helper
         $curl = curl_init();
         curl_setopt($curl, CURLOPT_URL, "{$serviceURL}services/PluginsService.logEvent.json");
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 2);
+        curl_setopt($curl, CURLOPT_CAINFO, ABSPATH . WPINC . '/certificates/ca-bundle.crt');
         curl_setopt($curl, CURLOPT_HTTPHEADER, [
             'Content-Type: application/json',
             "Authorization: {$privateKey}"
@@ -461,7 +646,7 @@ class Delivery_With_Econt_Helper
             'value' => $value
         ]]));
         curl_setopt($curl, CURLOPT_TIMEOUT, 6);
-        curl_exec($curl);
+        if (curl_exec($curl) === false) error_log('[Econt] logEvent: ' . curl_error($curl));
         curl_close($curl);
     }
 
