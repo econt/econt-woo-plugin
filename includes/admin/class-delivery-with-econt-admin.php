@@ -163,7 +163,8 @@ class Delivery_With_Econt_Admin
 						</header>
 						<div id="waybillFrameWrapper">
 							<div class="wc-order-preview-addresses">
-								<iframe id="waybillFrame" src="<?php echo DWEH()->get_service_url(); ?>create_label.php?order_number={{{data.order_number}}}&token=<?php echo DWEH()->get_private_key();?>"
+								<?php // src is set by delivery-with-econt-admin.js with a label session from the server, not the private key ?>
+								<iframe id="waybillFrame" src="about:blank"
 									frameborder="0"
 								></iframe>
 								<div class="wc-order-preview-address">

@@ -260,6 +260,47 @@ class Delivery_With_Econt_Helper
     }
 
     /**
+     * URL of Econt's waybill form for the order. The form gets a short label session for this order
+     * from Econt (OrdersService.createLabelSession), so the private key stays on the server.
+     *
+     * @param string $order_number
+     *
+     * @return string|WP_Error
+     */
+    public function get_label_url( $order_number )
+    {
+        $curl = curl_init();
+        curl_setopt($curl, CURLOPT_URL, $this->get_service_url() . 'services/OrdersService.createLabelSession.json');
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 2);
+        curl_setopt($curl, CURLOPT_CAINFO, ABSPATH . WPINC . '/certificates/ca-bundle.crt');
+        curl_setopt($curl, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            'Authorization: ' . $this->get_private_key()
+        ]);
+        curl_setopt($curl, CURLOPT_POST, true);
+        curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode(['orderNumber' => (string) $order_number]));
+        curl_setopt($curl, CURLOPT_TIMEOUT, 10);
+
+        $response = curl_exec($curl);
+        $curl_error = curl_error($curl);
+        curl_close($curl);
+
+        if ( $curl_error ) {
+            return new WP_Error( 'econt_label_session', $curl_error );
+        }
+
+        $token = json_decode($response, true);
+
+        if ( ! is_string( $token ) || $token === '' ) {
+            return new WP_Error( 'econt_label_session', $token['message'] ?? 'Unknown error' );
+        }
+
+        return $this->get_service_url() . 'create_label.php?order_number=' . rawurlencode( $order_number ) . '&token=' . rawurlencode( $token );
+    }
+
+    /**
      * The tracking url
      * 
      * @return string
