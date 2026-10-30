@@ -167,7 +167,8 @@ jQuery(document).ready(function (dwe) {
   window.addEventListener('message', function(message) {
     let econt_service_url = dwe('meta[name="econt-service-url"]')[0].content;
 
-    if (econt_service_url.indexOf(message.origin) < 0) {
+    // Only messages from the Econt delivery system (exact origin of the service URL)
+    if (message.origin !== new URL(econt_service_url).origin) {
       return;
     }
 
