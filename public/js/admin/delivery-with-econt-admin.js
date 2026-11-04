@@ -128,7 +128,7 @@ jQuery( document ).ready( function (dwe) {
           return t.data( "order-data" ) ? dwe( this ).WCBackboneModal({
             template: "dwe-modal",
             variable: t.data( "order-data" )
-          }) && dwe('.wc-backbone-modal-main').css({paddingBottom:0}) : ( t.addClass( "disabled" )
+          }) && dwe('.wc-backbone-modal-main').css({paddingBottom:0}) && loadLabelFrame( order_id ) : ( t.addClass( "disabled" )
           ,
             dwe.ajax({
               url:delivery_with_econt_admin_object.ajax_url,
@@ -145,7 +145,7 @@ jQuery( document ).ready( function (dwe) {
                   dwe( this ).WCBackboneModal({
                     template:"dwe-modal",
                     variable:e.data
-                  }) && dwe('.wc-backbone-modal-main').css({paddingBottom:0})
+                  }) && dwe('.wc-backbone-modal-main').css({paddingBottom:0}) && loadLabelFrame( order_id )
                 )
               }
             })
@@ -160,10 +160,8 @@ jQuery( document ).ready( function (dwe) {
   window.addEventListener( 'message', function( message ) {
       let econt_service_url = dwe('meta[name="econt-service-url"]')[0].content;
 
-      /**
-       * check if this "message" comes from econt delivery system
-       */
-      if (econt_service_url.indexOf(message.origin) < 0) {
+      // Only messages from the Econt delivery system (exact origin of the service URL)
+      if (message.origin !== new URL(econt_service_url).origin) {
           return;
       }
       if (message.data.event === 'cancel') {
@@ -176,7 +174,7 @@ jQuery( document ).ready( function (dwe) {
                   dwe("#action-waybill-" + global_order_id).data().waybillId = global_waybill_id;
                   jQuery('.modal-close').click();
                   if (message.data.printPdf) {
-                      window.open(message.data.shipmentStatus.pdfURL, '_blank')
+                      if (/^https:\/\//i.test(message.data.shipmentStatus.pdfURL || '')) window.open(message.data.shipmentStatus.pdfURL, '_blank')
                   }
               }
           })
@@ -222,6 +220,30 @@ jQuery( document ).ready( function (dwe) {
             }
         });
     }
+
+  // The waybill form opens with a label session that the server gets from Econt, the private key stays on the server
+  function loadLabelFrame(order_id) {
+    return dwe.ajax({
+      url: delivery_with_econt_admin_object.ajax_url,
+      data: {
+        "action": "delivery_with_econt_get_label_url",
+        "security": delivery_with_econt_admin_object.security,
+        "order_id": order_id
+      },
+      type: "POST",
+      dataType: 'json',
+      success: function( e ) {
+        if ( e.success ) {
+          dwe( '#waybillFrame' ).attr( 'src', e.data.url )
+        } else {
+          alert( 'Отговор от Еконт: ' + ( e.data && e.data.message ? e.data.message : '' ) )
+        }
+      },
+      error: function ( error ) {
+        alert( 'Отговор от Еконт: ' + error.responseText + "\r\nСървърен код - " + error.status + ' ( ' + error.statusText + ' ).' )
+      }
+    })
+  }
 
   // OrdersService.getTrace through admin-ajax: the server adds the private key and returns Econt's response
   function request(order_id, waybill_id, currency = '', s = null, i = null) {

@@ -553,6 +553,30 @@ function delivery_with_econt_get_trace()
 
 add_action( 'wp_ajax_delivery_with_econt_get_trace', 'delivery_with_econt_get_trace' );
 
+// URL of the waybill form with a label session from Econt instead of the private key
+function delivery_with_econt_get_label_url()
+{
+    check_ajax_referer( 'woocommerce-preview-order', 'security' );
+
+    if ( ! current_user_can( 'edit_shop_orders' ) ) {
+      wp_die( -1 );
+    }
+
+    $order = wc_get_order( absint( $_POST['order_id'] ?? 0 ) );
+    if ( ! $order ) {
+      wp_send_json_error( [ 'message' => __( 'Invalid order.', 'woocommerce' ) ] );
+    }
+
+    $url = DWEH()->get_label_url( $order->get_id() );
+    if ( is_wp_error( $url ) ) {
+      wp_send_json_error( [ 'message' => $url->get_error_message() ] );
+    }
+
+    wp_send_json_success( [ 'url' => $url ] );
+}
+
+add_action( 'wp_ajax_delivery_with_econt_get_label_url', 'delivery_with_econt_get_label_url' );
+
 // Sync the Econt services with local values 
 function delivery_with_econt_sync_order( $order_id ) 
 { 

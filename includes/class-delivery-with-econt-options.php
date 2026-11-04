@@ -117,6 +117,12 @@ class Delivery_With_Econt_Options
     public function sanitize($input) {
         $new_input = array();
 
+        // The saved key is not printed in the settings page (title_callback), so an empty field keeps it
+        $saved = get_option( 'delivery_with_econt_settings' );
+        if ( is_array( $input ) && trim( (string) ( $input['private_key'] ?? '' ) ) === '' && ! empty( $saved['private_key'] ) ) {
+            $input['private_key'] = $saved['private_key'];
+        }
+
         if (isset($input['store_id'])) $new_input['store_id'] = absint($input['store_id']);
         if (isset($input['private_key'])) $new_input['private_key'] = sanitize_text_field($input['private_key']);
         if (isset($input['demo_service'])) $new_input['demo_service'] = absint($input['demo_service']);
@@ -153,9 +159,12 @@ class Delivery_With_Econt_Options
     public function title_callback()
     {
         printf(
-            '<input type="password" id="private_key" name="delivery_with_econt_settings[private_key]" value="%s" />',
-            isset( $this->options['private_key'] ) ? esc_attr( $this->options['private_key']) : ''
+            '<input type="password" id="private_key" name="delivery_with_econt_settings[private_key]" value="" autocomplete="new-password" />'
         );
+        // The key stays on the server: an empty field keeps the saved key (sanitize)
+        if ( ! empty( $this->options['private_key'] ) ) {
+            printf( '<p class="description">%s</p>', esc_html__( 'A private key is saved. Leave the field empty to keep it or enter a new key to replace it.', 'deliver-with-econt' ) );
+        }
     }
 
     function demo_checkbox_callback()

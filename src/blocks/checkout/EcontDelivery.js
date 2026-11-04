@@ -513,7 +513,7 @@ const EcontDelivery = () => {
     const handleIframeMessage = async (event) => {
         // Check if message is from Econt
         const econtServiceUrl = document.querySelector('meta[name="econt-service-url"]')?.content
-        if (econtServiceUrl && econtServiceUrl.indexOf(event.origin) < 0) {
+        if (!econtServiceUrl || event.origin !== new URL(econtServiceUrl).origin) {
             return
         }
 
