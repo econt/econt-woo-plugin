@@ -91,3 +91,6 @@ msgid ""
 msgstr ""
 "Цената на доставката с Еконт се промени. Моля, прегледайте новата сума и "
 "направете поръчката отново."
+
+msgid "A private key is saved. Leave the field empty to keep it or enter a new key to replace it."
+msgstr "Има записан частен ключ. Оставете полето празно, за да го запазите, или въведете нов ключ, за да го смените."

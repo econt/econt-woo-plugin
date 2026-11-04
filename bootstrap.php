@@ -567,7 +567,7 @@ function delivery_with_econt_get_label_url()
       wp_send_json_error( [ 'message' => __( 'Invalid order.', 'woocommerce' ) ] );
     }
 
-    $url = DWEH()->get_label_url( $order->get_order_number() );
+    $url = DWEH()->get_label_url( $order->get_id() );
     if ( is_wp_error( $url ) ) {
       wp_send_json_error( [ 'message' => $url->get_error_message() ] );
     }
