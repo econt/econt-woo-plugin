@@ -80,3 +80,12 @@ msgstr ""
 #: bootstrap.php:331
 msgid "You can't submit order, if shipping price is not calculated properly!"
 msgstr ""
+
+#: helpers.php
+msgid "Econt did not calculate a price with cash on delivery."
+msgstr ""
+
+#: bootstrap.php
+#, php-format
+msgid "Cash on delivery and Econt Pay are not possible for this order: %s Please choose another payment method."
+msgstr ""

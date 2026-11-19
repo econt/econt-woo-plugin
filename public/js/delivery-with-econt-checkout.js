@@ -3,6 +3,9 @@ jQuery(document).ready(function (dwe) {
   let global_shippment_price_cod_e
   let global_shippment_price_no_cod
   let global_info_message
+  // Why Econt does not allow cash on delivery (shipment_error_cod from the Econt form), e.g. above the legal limit
+  // for cash payments; empty if it is possible
+  let global_cod_error = ''
   let use_shipping = false
   var locale = document.documentElement.lang.split('-')[0];
   var buttonText
@@ -52,6 +55,30 @@ jQuery(document).ready(function (dwe) {
     global_shippment_price_cod_e = undefined
     global_shippment_price_no_cod = undefined
     global_info_message = undefined
+    global_cod_error = ''
+  }
+
+  // Cash on delivery and Econt Pay are sent to Econt as shipments with cash on delivery
+  function isCodPaymentSelected() {
+    return checkIfPaymentMethodIsSelected('payment_method_cod') || checkIfPaymentMethodIsSelected('payment_method_econt_payment');
+  }
+
+  function codErrorText() {
+    if (!global_cod_error) return '';
+    return (locale === 'bg')
+        ? 'Наложен платеж и Econt Pay не са възможни за тази поръчка: ' + global_cod_error + ' Моля, изберете друг начин на плащане.'
+        : 'Cash on delivery and Econt Pay are not possible for this order: ' + global_cod_error + ' Please choose another payment method.';
+  }
+
+  // Shows an error above the Econt section for a few seconds
+  function showEcontError(text) {
+    dwe('#econt_display_error_message').empty().text(text);
+
+    dwe('.econt-alert').addClass('active');
+    dwe('html,body').animate({scrollTop: dwe('#delivery_with_econt_calculate_shipping').offset().top - 50}, 750);
+    setTimeout(function() {
+      dwe('.econt-alert').removeClass('active');
+    }, 3500);
   }
 
   function checkIfShippingMethodIsEcont() {
@@ -79,6 +106,14 @@ jQuery(document).ready(function (dwe) {
       alert('Моля калкулирайте цена за доставка с Еконт!');
       dwe('body').trigger('update_checkout');
       globalAlertMessage = true;
+      return false;
+    }
+
+    // The server does not accept the order either, but its error would reset the confirmed Econt form
+    if (checkIfShippingMethodIsEcont() && global_cod_error && isCodPaymentSelected()) {
+      e.preventDefault();
+      e.stopPropagation();
+      showEcontError(codErrorText());
       return false;
     }
   }
@@ -119,10 +154,10 @@ jQuery(document).ready(function (dwe) {
         let current_shipping_method = getSelectedShippingMethod();
 
         if (this.value == 'cod' && current_shipping_method === 'delivery_with_econt') {
-          document.cookie = "econt_shippment_price=" + global_shippment_price_cod + "; path=/";
+          document.cookie = "econt_shippment_price=" + (global_shippment_price_cod ?? global_shippment_price_no_cod) + "; path=/";
           dwe('#econt_detailed_shipping').css('display', 'block');
         } else if (this.value == 'econt_payment' && current_shipping_method === 'delivery_with_econt') {
-          document.cookie = "econt_shippment_price=" + global_shippment_price_cod_e + "; path=/";
+          document.cookie = "econt_shippment_price=" + (global_shippment_price_cod_e ?? global_shippment_price_no_cod) + "; path=/";
           dwe('#econt_detailed_shipping').css('display', 'block');
         } else if (current_shipping_method === 'delivery_with_econt') {
           document.cookie = "econt_shippment_price=" + global_shippment_price_no_cod + "; path=/";
@@ -158,7 +193,7 @@ jQuery(document).ready(function (dwe) {
       getDataFromForm(use_shipping);
     });
 
-    showPriceInfo(global_info_message);
+    showPriceInfo(global_info_message, codErrorText());
   });
 
   /**
@@ -197,6 +232,8 @@ jQuery(document).ready(function (dwe) {
     global_shippment_price_cod = data['shipping_price_cod'];
     global_shippment_price_cod_e = data['shipping_price_cod_e'];
     global_shippment_price_no_cod = data['shipping_price'];
+    // With shipment_error_cod the prices with cash on delivery are null: the order is possible only without it
+    global_cod_error = data['shipment_error_cod'] || '';
 
     if (codInput && codInput.checked) {
       shipmentPrice = data['shipping_price_cod'];
@@ -205,6 +242,7 @@ jQuery(document).ready(function (dwe) {
     } else {
       shipmentPrice = data['shipping_price'];
     }
+    if (shipmentPrice == null) shipmentPrice = data['shipping_price'];
 
     global_info_message = data['shipping_price'] +
         ' ' +
@@ -363,13 +401,16 @@ function stopLoader() {
   }, 1000);
 }
 
-function showPriceInfo(global_message) {
+function showPriceInfo(global_message, cod_error) {
   let im = jQuery('#econt_detailed_shipping');
   im.empty();
   if (!checkIfShippingMethodIsEcont()) {
     im.css("display", "none");
   } else {
-    if (checkIfPaymentMethodIsSelected('payment_method_cod')) {
+    // Econt does not allow cash on delivery for this order: why, instead of the price with it
+    if (cod_error && (checkIfPaymentMethodIsSelected('payment_method_cod') || checkIfPaymentMethodIsSelected('payment_method_econt_payment'))) {
+      im.text(cod_error);
+    } else if (checkIfPaymentMethodIsSelected('payment_method_cod')) {
       im.text(global_message);
     } else if (checkIfPaymentMethodIsSelected('payment_method_econt_payment')) {
       im.text("");

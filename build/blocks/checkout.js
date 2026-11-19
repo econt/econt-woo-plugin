@@ -37,6 +37,8 @@ const EcontDelivery = () => {
     no_cod: undefined
   });
   const [globalInfoMessage, setGlobalInfoMessage] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)("");
+  // Why Econt does not allow cash on delivery (shipment_error_cod), e.g. above the legal limit for cash payments
+  const [codError, setCodError] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)("");
   const [isModalOpen, setIsModalOpen] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [isLoading, setIsLoading] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [useShipping, setUseShipping] = (0,react__WEBPACK_IMPORTED_MODULE_0__.useState)(true);
@@ -71,6 +73,7 @@ const EcontDelivery = () => {
       no_cod: undefined
     });
     setGlobalInfoMessage("");
+    setCodError("");
   };
 
   // Function to validate shipping price
@@ -510,6 +513,8 @@ const EcontDelivery = () => {
       cod_e: data.shipping_price_cod_e,
       no_cod: data.shipping_price
     });
+    // With shipment_error_cod the prices with cash on delivery are null: the order is possible only without it
+    setCodError(data.shipment_error_cod ? String(data.shipment_error_cod) : "");
 
     // Determine current shipping price based on payment method
     let shipmentPrice = data.shipping_price;
@@ -520,6 +525,7 @@ const EcontDelivery = () => {
     } else if (econtPaymentInput && econtPaymentInput.checked) {
       shipmentPrice = data.shipping_price_cod_e;
     }
+    if (shipmentPrice == null) shipmentPrice = data.shipping_price;
 
     // Set info message
     const infoMessage = `${data.shipping_price} ${data.shipping_price_currency_sign} за доставка и ${Math.round((shipmentPrice - data.shipping_price) * 100) / 100} ${data.shipping_price_currency_sign} наложен платеж.`;
@@ -951,7 +957,8 @@ const EcontDelivery = () => {
     if (btnContainer !== buttonContainer) {
       setButtonContainer(btnContainer);
     }
-    return (0,react_dom__WEBPACK_IMPORTED_MODULE_1__.createPortal)((0,react__WEBPACK_IMPORTED_MODULE_0__.createElement)("button", {
+    const codErrorText = !codError ? "" : locale === "bg" ? `Наложен платеж и Econt Pay не са възможни за тази поръчка: ${codError} Моля, изберете друг начин на плащане.` : `Cash on delivery and Econt Pay are not possible for this order: ${codError} Please choose another payment method.`;
+    return (0,react_dom__WEBPACK_IMPORTED_MODULE_1__.createPortal)((0,react__WEBPACK_IMPORTED_MODULE_0__.createElement)(react__WEBPACK_IMPORTED_MODULE_0__.Fragment, null, (0,react__WEBPACK_IMPORTED_MODULE_0__.createElement)("button", {
       type: "button",
       id: "calculate_shipping_button",
       className: "econt-button econt-button-select",
@@ -969,7 +976,18 @@ const EcontDelivery = () => {
       onClick: () => {
         getDataFromForm();
       }
-    }, globalShipmentPrices.no_cod ? buttonText : selectLocationText), btnContainer);
+    }, globalShipmentPrices.no_cod ? buttonText : selectLocationText), codErrorText && (0,react__WEBPACK_IMPORTED_MODULE_0__.createElement)("div", {
+      className: "econt-cod-error",
+      role: "alert",
+      style: {
+        marginTop: "8px",
+        padding: "10px",
+        backgroundColor: "#fdecea",
+        border: "1px solid #d63638",
+        borderRadius: "4px",
+        fontSize: "14px"
+      }
+    }, codErrorText)), btnContainer);
   };
 
   // Render the modal

@@ -57,7 +57,13 @@ class Delivery_With_Econt_Shipping extends WC_Shipping_Method
         // The price comes from the Econt server, not from the cookie of the Econt form. Until the customer confirms
         // the form, or if Econt gives no price, the cost is 0 and checkout does not accept the order.
         $econt_data = $package['econt_delivery'] ?? DWEH()->get_econt_shipping_data();
-        $cost = DWEH()->get_cart_shipping_cost( $econt_data ) ?? 0;
+        $cost = DWEH()->get_cart_shipping_cost( $econt_data );
+        // Econt does not allow cash on delivery for the cart: the order with it is not accepted, and until the customer
+        // chooses another payment method the cart shows the price without cash on delivery instead of 0
+        if ( $cost === null && DWEH()->get_cart_cod_error( $econt_data ) !== '' ) {
+            $cost = DWEH()->get_cart_shipping_cost( [ 'payment_method' => '' ] + $econt_data );
+        }
+        $cost = $cost ?? 0;
 
         $rate = array(
             'id' => $this->id,
@@ -105,6 +111,9 @@ class Delivery_With_Econt_Shipping extends WC_Shipping_Method
         
 //        $order['confirm_txt'] = 'Потвърди'; // текст за потвърждаващия бутон
         $order['ignore_history'] = 1; // изключване на автоматично попълване на полетата от историята
+        // When only cash on delivery is not possible (e.g. above the legal limit for cash payments), the Econt form
+        // gives the price without it and the reason in shipment_error_cod, instead of an error for the whole form
+        $order['separate_cod_error'] = 1;
         wp_send_json($url . 'customer_info.php?' . http_build_query($order, null, '&'));
     }
 

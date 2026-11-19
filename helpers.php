@@ -418,12 +418,15 @@ class Delivery_With_Econt_Helper
      * cash on delivery.
      *
      * @param array $econt_data From get_econt_shipping_data()
-     * @return float|null null without a confirmed Econt form or if Econt does not give a price
+     * @return float|null null without a confirmed Econt form, if Econt does not give a price, or for cash on delivery
+     *                    and Econt Pay when Econt does not allow cash on delivery (see get_cart_cod_error())
      */
     public function get_cart_shipping_cost( $econt_data )
     {
         $prices = $this->get_cart_shipping_prices( $econt_data );
         if ( ! $prices ) return null;
+
+        if ( $this->is_cod_payment_method( $econt_data['payment_method'] ?? '' ) && $prices['price_cod'] === null ) return null;
 
         if ( ( $econt_data['payment_method'] ?? '' ) === 'cod' ) return $prices['price_cod'];
 
@@ -436,6 +439,34 @@ class Delivery_With_Econt_Helper
         }
 
         return $prices['price'];
+    }
+
+    /**
+     * Payment methods for which Econt sends the shipment with cash on delivery, as in the sync of the order.
+     *
+     * @param string $payment_method
+     * @return bool
+     */
+    public function is_cod_payment_method( $payment_method )
+    {
+        return in_array( $payment_method, [ 'cod', 'econt_payment' ], true );
+    }
+
+    /**
+     * Why Econt does not allow cash on delivery for the cart (e.g. above the legal limit for cash payments), while
+     * the delivery without it is possible.
+     *
+     * @param array $econt_data From get_econt_shipping_data()
+     * @return string Message from Econt; empty if cash on delivery is possible or there are no prices
+     */
+    public function get_cart_cod_error( $econt_data )
+    {
+        $prices = $this->get_cart_shipping_prices( $econt_data );
+        if ( ! $prices || $prices['price_cod'] !== null ) return '';
+
+        return ( $prices['cod_error'] ?? '' ) !== ''
+            ? $prices['cod_error']
+            : __( 'Econt did not calculate a price with cash on delivery.', 'deliver-with-econt' );
     }
 
     /**
@@ -468,7 +499,10 @@ class Delivery_With_Econt_Helper
      *
      * @param array $econt_data From get_econt_shipping_data()
      * @param bool $fresh Ask Econt even if the prices are in the cache
-     * @return array|null ['price' => float, 'price_cod' => float], or null if Econt does not answer or does not know the id
+     * @return array|null ['price' => float, 'price_cod' => float|null, 'cod_error' => string], or null if Econt does not
+     *                    answer or does not know the id. Without a price with cash on delivery (e.g. above the legal limit
+     *                    for cash payments) price_cod is null and cod_error has the message from Econt; the price without
+     *                    it is still used for the other payment methods.
      */
     private function get_cart_shipping_prices( $econt_data, $fresh = false )
     {
@@ -488,10 +522,10 @@ class Delivery_With_Econt_Helper
         if ( $price === null ) return null;
 
         // Like the Econt form: an order without a total has no cash on delivery
-        $price_cod = $total > 0 ? $this->get_econt_price( $customer_info_id, $total, $weight, $currency, true ) : $price;
-        if ( $price_cod === null ) return null;
+        $cod_error = '';
+        $price_cod = $total > 0 ? $this->get_econt_price( $customer_info_id, $total, $weight, $currency, true, $cod_error ) : $price;
 
-        $prices = [ 'price' => $price, 'price_cod' => $price_cod ];
+        $prices = [ 'price' => $price, 'price_cod' => $price_cod, 'cod_error' => $price_cod === null ? $cod_error : '' ];
         WC()->session->set( 'econt_delivery_server_prices', [ 'key' => $key, 'prices' => $prices ] );
 
         return $prices;
@@ -500,9 +534,10 @@ class Delivery_With_Econt_Helper
     /**
      * Shipping price (receiverDueAmount) from OrdersService.getPrice
      *
+     * @param string $error Set to the message from Econt when there is no price
      * @return float|null null on a connection error or an error from Econt
      */
-    private function get_econt_price( $customer_info_id, $total, $weight, $currency, $cod )
+    private function get_econt_price( $customer_info_id, $total, $weight, $currency, $cod, &$error = '' )
     {
         $request = [
             'cod' => (bool) $cod,
@@ -538,6 +573,7 @@ class Delivery_With_Econt_Helper
 
         if ( $http_code !== 200 || ! isset( $result['receiverDueAmount'] ) || ! is_numeric( $result['receiverDueAmount'] ) ) {
             error_log( sprintf( '[Econt] getPrice failed [%d] %s %s', $http_code, $curl_error, $result['message'] ?? '' ) );
+            $error = is_string( $result['message'] ?? null ) ? sanitize_text_field( $result['message'] ) : '';
             return null;
         }
 
