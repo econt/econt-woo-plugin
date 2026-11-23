@@ -94,3 +94,12 @@ msgstr ""
 
 msgid "A private key is saved. Leave the field empty to keep it or enter a new key to replace it."
 msgstr "Има записан частен ключ. Оставете полето празно, за да го запазите, или въведете нов ключ, за да го смените."
+
+#: helpers.php
+msgid "Econt did not calculate a price with cash on delivery."
+msgstr "Еконт не изчисли цена с наложен платеж."
+
+#: bootstrap.php
+#, php-format
+msgid "Cash on delivery and Econt Pay are not possible for this order: %s Please choose another payment method."
+msgstr "Наложен платеж и Econt Pay не са възможни за тази поръчка: %s Моля, изберете друг начин на плащане."

@@ -636,6 +636,13 @@ function action_woocommerce_checkout_process($wccs_custom_checkout_field_pro_pro
 
 	// The shipping price is taken from Econt; without it the order would be saved with shipping 0
 	$payment_method = isset($_POST['payment_method']) ? wc_clean(wp_unslash($_POST['payment_method'])) : null;
+	// Econt does not allow cash on delivery for this order (e.g. above the legal limit for cash payments)
+	$cod_error = isset($_COOKIE['econt_customer_info_id']) && DWEH()->is_cod_payment_method((string) $payment_method)
+		? DWEH()->get_cart_cod_error(DWEH()->get_econt_shipping_data($payment_method)) : '';
+	if ($cod_error !== '') {
+		throw new Exception(delivery_with_econt_cod_error_message($cod_error));
+	}
+
 	if(!isset($_COOKIE['econt_customer_info_id']) || DWEH()->get_cart_shipping_cost(DWEH()->get_econt_shipping_data($payment_method)) === null) {
 		function my_woocommerce_add_error($error) {
 			$error = __("You can't submit order, if shipping price is not calculated properly!", 'deliver-with-econt');
@@ -659,6 +666,17 @@ function action_woocommerce_checkout_process($wccs_custom_checkout_field_pro_pro
 };
 
 add_action('woocommerce_checkout_process', 'action_woocommerce_checkout_process', 10, 1);
+
+/**
+ * Message for an order with cash on delivery or Econt Pay that Econt does not allow with cash on delivery
+ *
+ * @param string $cod_error Reason from Econt (DWEH()->get_cart_cod_error())
+ * @return string
+ */
+function delivery_with_econt_cod_error_message($cod_error) {
+	/* translators: %s: reason from Econt, e.g. the amount is above the legal limit for cash payments */
+	return sprintf(__('Cash on delivery and Econt Pay are not possible for this order: %s Please choose another payment method.', 'deliver-with-econt'), $cod_error);
+}
 
 /**
  * Block checkout (Store API): the same check as action_woocommerce_checkout_process, which WooCommerce runs only
@@ -689,6 +707,15 @@ function delivery_with_econt_store_api_checkout_process($order, $request) {
 	}
 
 	$cost = DWEH()->get_cart_shipping_cost($econt_data);
+	$cod_error = DWEH()->is_cod_payment_method((string) ($econt_data['payment_method'] ?? '')) ? DWEH()->get_cart_cod_error($econt_data) : '';
+	if ($cod_error !== '') {
+		throw new \Automattic\WooCommerce\StoreApi\Exceptions\RouteException(
+			'delivery_with_econt_cod_not_possible',
+			delivery_with_econt_cod_error_message($cod_error),
+			400
+		);
+	}
+
 	if ($cost === null) {
 		throw new \Automattic\WooCommerce\StoreApi\Exceptions\RouteException(
 			'delivery_with_econt_shipping_price',
